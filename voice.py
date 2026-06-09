@@ -1,0 +1,201 @@
+"""
+voice.py — Whisper STT + Coqui XTTS-v2 TTS, with voice round-trip latency.
+
+The voice path: microphone WAV -> Whisper transcription (auto language detect) ->
+bot.generate_answer (the SAME shared brain the text path uses) -> XTTS-v2 speech.
+XTTS is loaded ON DEMAND (first synth call) to keep VRAM free while only typing.
+
+Public API
+----------
+    load_stt()                         -> whisper model (cached)
+    transcribe(audio_path)             -> (text, lang)
+    load_tts()                         -> XTTS model (cached, lazy)
+    synthesize(text, lang)             -> wav_path
+    voice_answer(audio_path, vector_db, history) -> dict
+
+`voice_answer()` returns
+    {transcription, lang, text, route, wav_path,
+     t_stt, t_retrieval, t_generation, t_tts}
+and records the four-stage round trip into bot.LATENCY (kind="voice"), so the
+report's voice numbers are real measurements.
+
+Number/abbreviation expansion before TTS (Go, SMS, DA, thousands separators) keeps
+the spoken output natural — XTTS reads "5 Go" as words, not letters.
+"""
+
+import os
+import re
+import time
+import logging
+
+import config
+from bot import generate_answer, detect_language, timed, record_latency
+
+logger = logging.getLogger("djezzybot.voice")
+
+_stt = None
+_tts = None
+_tts_dir = os.path.join(config.BASE_DIR, "tts_out")
+
+
+# ===========================================================================
+# STT — Whisper medium
+# ===========================================================================
+def load_stt():
+    """Load (once) Whisper-medium via faster-whisper (CTranslate2).
+
+    float16 on GPU keeps the weights at ~1.5 GB instead of openai-whisper's fp32
+    ~3 GB, and is faster — meaningful headroom next to Qwen-7B + XTTS on a T4.
+    Falls back to int8 on CPU.
+    """
+    global _stt
+    if _stt is None:
+        from faster_whisper import WhisperModel
+        import torch
+        # config holds the HF-style id ("openai/whisper-medium"); faster-whisper
+        # wants the size name ("medium").
+        size = config.STT_MODEL_ID.split("whisper-")[-1]
+        if torch.cuda.is_available():
+            device, compute = "cuda", config.STT_COMPUTE_TYPE
+        else:
+            device, compute = "cpu", "int8"
+        logger.info("loading faster-whisper %s (%s, %s)", size, device, compute)
+        _stt = WhisperModel(size, device=device, compute_type=compute)
+    return _stt
+
+
+# Brand-primed prompt to bias Whisper toward Djezzy vocabulary.
+_STT_PRIMER = (
+    "Djezzy, iZZY, Legend, Campuce, Zid, Confort, roaming, forfait, "
+    "Go, Mo, DA, dinars, internet, crédit, Hadj, Omra."
+)
+
+
+def transcribe(audio_path: str):
+    """Transcribe audio and return (text, lang) with lang in fr/ar/en/dz.
+
+    Whisper auto-detects among STT_ALLOWED_LANGS; we then upgrade Arabic-script or
+    Darija-marker transcriptions to "dz" so the bot replies in MSA per the rules.
+    """
+    model = load_stt()
+    # faster-whisper returns a segments generator + an info object holding the
+    # auto-detected language. info is available immediately; segments stream.
+    segments, info = model.transcribe(
+        audio_path,
+        task="transcribe",
+        initial_prompt=_STT_PRIMER,
+        temperature=0.0,
+        beam_size=3,
+        condition_on_previous_text=False,
+    )
+    text = "".join(seg.text for seg in segments).strip()
+    wlang = info.language if info.language in config.STT_ALLOWED_LANGS else "fr"
+    # reuse the text-side detector so STT and text paths agree on dz vs ar/fr
+    lang = detect_language(text) if text else wlang
+    # if Whisper heard Arabic but our detector didn't catch Darija, keep ar
+    if wlang == "ar" and lang == "fr":
+        lang = "ar"
+    return text, lang
+
+
+# ===========================================================================
+# TTS — Coqui XTTS-v2 (on-demand)
+# ===========================================================================
+def load_tts():
+    """Load (once, lazily) Coqui XTTS-v2. Called on the first synth, not at boot."""
+    global _tts
+    if _tts is None:
+        from TTS.api import TTS
+        import torch
+        logger.info("loading XTTS-v2 (on demand) %s", config.TTS_MODEL_ID)
+        _tts = TTS(config.TTS_MODEL_ID).to("cuda" if torch.cuda.is_available() else "cpu")
+    return _tts
+
+
+# Number-to-words + abbreviation expansion so XTTS speaks naturally.
+_TTS_NUM_LANG = {"fr": "fr", "en": "en", "ar": "ar", "dz": "ar"}
+
+
+def _expand_for_tts(text: str, lang: str) -> str:
+    """Expand telecom abbreviations and numbers to spoken words.
+
+    - collapse French thousands separators: "3 000" -> "3000"
+    - Go/Mo/SMS/DA -> spoken words (language-appropriate)
+    - digits -> words via num2words
+    """
+    from num2words import num2words
+
+    # collapse "1 000" / "3 000" style separators BEFORE word conversion
+    text = re.sub(r"(?<=\d)\s+(?=\d{3}\b)", "", text)
+
+    if lang in ("ar", "dz"):
+        repl = {"Go": "جيجابايت", "Mo": "ميجابايت", "SMS": "رسائل",
+                "DA": "دينار", "DZD": "دينار"}
+    elif lang == "en":
+        repl = {"Go": "gigabytes", "Mo": "megabytes", "SMS": "SMS",
+                "DA": "dinars", "DZD": "dinars"}
+    else:  # fr
+        repl = {"Go": "giga-octets", "Mo": "méga-octets", "SMS": "SMS",
+                "DA": "dinars", "DZD": "dinars"}
+    for k, v in repl.items():
+        text = re.sub(rf"\b{k}\b", v, text)
+
+    nlang = _TTS_NUM_LANG.get(lang, "fr")
+
+    def _num(m):
+        try:
+            return num2words(int(m.group(0)), lang=nlang)
+        except Exception:
+            return m.group(0)
+
+    return re.sub(r"\d+", _num, text)
+
+
+def synthesize(text: str, lang: str) -> str:
+    """Synthesize `text` to a WAV file and return its path.
+
+    XTTS only has fr/en/ar voices, so Darija ("dz") is spoken with the Arabic
+    voice via config.TTS_LANG_MAP. Text is expanded for natural pronunciation.
+    """
+    model = load_tts()
+    os.makedirs(_tts_dir, exist_ok=True)
+    xtts_lang = config.TTS_LANG_MAP.get(lang, "fr")
+    spoken = _expand_for_tts(text, lang)
+    out_path = os.path.join(_tts_dir, f"tts_{int(time.time()*1000)}.wav")
+    model.tts_to_file(text=spoken, language=xtts_lang, file_path=out_path)
+    return out_path
+
+
+# ===========================================================================
+# Full voice round trip
+# ===========================================================================
+def voice_answer(audio_path: str, vector_db, history: list = None) -> dict:
+    """STT -> retrieve -> generate -> TTS, timing each stage separately.
+
+    Returns transcription, detected language, answer text, route, the spoken WAV
+    path, and the four stage timings. Records a kind="voice" latency entry.
+    """
+    history = history or []
+    stages = {}
+
+    with timed(stages, "stt"):
+        transcription, lang = transcribe(audio_path)
+
+    # Shared brain: identical retrieval/routing/budget/prompt/generation as text.
+    res = generate_answer(transcription, lang, vector_db, history)
+    stages["retrieval"] = res["t_retrieval"]
+    stages["generation"] = res["t_generation"]
+    text, route = res["text"], res["route"]
+
+    with timed(stages, "tts"):
+        wav_path = synthesize(text, lang)
+
+    record_latency("voice", route, stages)
+    return {
+        "transcription": transcription, "lang": lang, "text": text, "route": route,
+        "wav_path": wav_path,
+        "t_stt": stages.get("stt", 0.0),
+        "t_retrieval": stages.get("retrieval", 0.0),
+        "t_generation": stages.get("generation", 0.0),
+        "t_tts": stages.get("tts", 0.0),
+    }

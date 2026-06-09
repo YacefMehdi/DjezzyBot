@@ -1,0 +1,46 @@
+# DjezzyBot — Python dependencies (Colab T4, open-source only)
+# Install:  pip install -r requirements.txt
+# System packages (NOT pip) are installed in the notebook:
+#   apt-get install tesseract-ocr tesseract-ocr-ara tesseract-ocr-fra tesseract-ocr-eng
+#   playwright install chromium
+
+# --- LLM (Qwen2.5-7B-Instruct, 4-bit NF4) ---
+torch                      # provided by Colab; listed for completeness
+transformers>=4.44
+accelerate>=0.33
+bitsandbytes>=0.43         # 4-bit NF4 quantization
+sentencepiece
+protobuf
+
+# --- Embeddings + vector store ---
+sentence-transformers>=3.0   # intfloat/multilingual-e5-base
+faiss-cpu>=1.8
+numpy
+
+# --- Orchestration (LangChain) ---
+langchain>=0.2
+langchain-community>=0.2     # FAISS vectorstore wrapper
+langchain-core>=0.2
+langchain-text-splitters>=0.2
+
+# --- Scraping + OCR ---
+playwright>=1.44             # chromium rendering for the BFS crawl
+beautifulsoup4>=4.12
+lxml>=5.0                    # fast parser for HTML + sitemap XML
+requests>=2.31
+pytesseract>=0.3.10          # Python wrapper around the tesseract binary
+Pillow>=10.0
+
+# --- Speech ---
+faster-whisper>=1.0          # Whisper-medium STT (CTranslate2, float16 ~1.5GB)
+coqui-tts>=0.24              # Coqui XTTS-v2 (maintained fork; provides TTS.api)
+num2words>=0.5.13            # spoken-number expansion for TTS
+
+# --- Language detection ---
+langdetect>=1.0.9
+
+# --- Scheduling ---
+schedule>=1.2
+
+# --- UI ---
+gradio>=4.44

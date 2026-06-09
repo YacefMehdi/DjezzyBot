@@ -1,0 +1,347 @@
+"""
+bot.py — LLM, prompt assembly, language detection, history, and the text path.
+
+Loads Qwen2.5-7B (4-bit NF4), assembles the Qwen chat prompt (system rules +
+retrieved context + recent history + a per-language directive placed in the USER
+turn, never the assistant turn), generates greedily, and returns the answer with
+per-stage latency already measured.
+
+Public API
+----------
+    load_llm()                                   -> (model, tokenizer)
+    detect_language(text)                        -> "fr" | "ar" | "en" | "dz"
+    answer(question, vector_db, history)         -> dict
+    LATENCY                                       -> accumulated timing store
+
+`answer()` returns:
+    {text, lang, route, t_retrieval, t_generation}
+and appends a record to the module-level LATENCY store so REPORT.md can be built
+from real measurements rather than estimates.
+
+Latency is wired in from the start (per spec): retrieval and generation are timed
+SEPARATELY via the `timed()` context manager.
+"""
+
+import re
+import time
+import json
+import logging
+from contextlib import contextmanager
+
+import config
+from data import lexicon
+from retriever import smart_retrieve, budget_of
+
+logger = logging.getLogger("djezzybot.bot")
+
+_model = None
+_tokenizer = None
+
+# Arabic letters (used by language detection).
+_ARABIC_RE = re.compile(r"[؀-ۿ]")
+
+
+# ===========================================================================
+# Latency store (shared across the whole test run)
+# ===========================================================================
+# Each record: {"kind": "text"|"voice", "route": str, "stages": {name: seconds}}
+LATENCY = []
+
+
+@contextmanager
+def timed(bucket: dict, name: str):
+    """Measure wall-clock seconds for a stage and store it in `bucket[name]`."""
+    t0 = time.perf_counter()
+    try:
+        yield
+    finally:
+        bucket[name] = time.perf_counter() - t0
+
+
+def record_latency(kind: str, route: str, stages: dict):
+    """Append a latency record and persist the store to disk (best-effort)."""
+    LATENCY.append({"kind": kind, "route": route, "stages": stages})
+    try:
+        with open(config.LATENCY_STORE, "w", encoding="utf-8") as f:
+            json.dump(LATENCY, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+# ===========================================================================
+# Model loading
+# ===========================================================================
+def load_llm():
+    """Load Qwen2.5-7B-Instruct (4-bit NF4) and its tokenizer (cached)."""
+    global _model, _tokenizer
+    if _model is not None:
+        return _model, _tokenizer
+
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+    logger.info("loading LLM %s", config.LLM_MODEL_ID)
+    bnb = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_compute_dtype=torch.float16,
+    )
+    _tokenizer = AutoTokenizer.from_pretrained(config.LLM_MODEL_ID)
+    _model = AutoModelForCausalLM.from_pretrained(
+        config.LLM_MODEL_ID,
+        quantization_config=bnb,
+        device_map={"": 0},
+        torch_dtype=torch.float16,
+    )
+    _model.eval()
+    return _model, _tokenizer
+
+
+# ===========================================================================
+# Language detection
+# ===========================================================================
+def detect_language(text: str) -> str:
+    """Classify into fr / ar / en / dz.
+
+    Order matters: Darija markers are checked first (they're written in Latin
+    script and would otherwise be mistaken for French), then Arabic script, then
+    langdetect distinguishes French vs English (defaulting to French on failure).
+    """
+    t = text.lower()
+    tokens = set(re.findall(r"[a-z0-9]+", t))
+    if tokens & lexicon.DARIJA_WORDS:
+        return "dz"
+    if _ARABIC_RE.search(text):
+        return "ar"
+    try:
+        from langdetect import detect
+        lang = detect(text)
+    except Exception:
+        lang = "fr"
+    return "en" if lang == "en" else "fr"
+
+
+# ===========================================================================
+# System prompt — 10 strict rules
+# ===========================================================================
+SYSTEM_PROMPT = (
+    "Tu es DjezzyBot, l'assistant virtuel officiel de l'opérateur télécom algérien Djezzy. "
+    "Tu réponds uniquement à partir du CONTEXTE fourni. Respecte ces 10 règles ABSOLUES :\n"
+    "1. CONTEXTE UNIQUEMENT : n'invente JAMAIS un prix, une offre, un volume, une validité "
+    "ou un code USSD. Si l'information n'est pas dans le contexte, dis-le honnêtement.\n"
+    "2. PRIX + TOUS LES DÉTAILS : chaque fois que tu cites une offre, indique son prix exact, "
+    "puis TOUS les détails présents dans le contexte pour cette offre — sans en oublier : "
+    "volume internet / 5G, validité ou date limite, appels nationaux, appels vers les autres "
+    "opérateurs, SMS nationaux, SMS internationaux, réseaux sociaux inclus, crédit ou appels/SMS "
+    "entrants offerts, conditions d'éligibilité (ex : étudiant), numéro spécial (ex : 0770), et "
+    "code USSD. N'invente aucun de ces éléments : ne cite que ceux réellement présents.\n"
+    "3. BUDGET : si un budget est donné, n'affiche QUE des offres dont le prix est inférieur "
+    "ou égal à ce budget. Le contexte est déjà filtré — liste tout ce qu'il contient.\n"
+    "4. NATIONAL ≠ ROAMING : ne confonds jamais un tarif national avec un tarif roaming "
+    "(à l'étranger). N'utilise un tarif roaming que si la question concerne l'étranger.\n"
+    "5. PAS DE CONCURRENT (avec une exception) : ne décris, ne compare et ne recommande jamais "
+    "les OFFRES d'un autre opérateur. EXCEPTION : tu PEUX indiquer qu'une offre Djezzy inclut des "
+    "appels ou SMS VERS d'autres réseaux (Ooredoo, Mobilis...) — c'est une caractéristique de "
+    "l'offre Djezzy, pas une promotion d'un concurrent.\n"
+    "6. LANGUE DU CLIENT : réponds TOUJOURS dans la langue de la question.\n"
+    "7. DARIJA → ARABE STANDARD : si la question est en darija algérien, réponds en arabe "
+    "standard moderne (MSA), clair et correct.\n"
+    "8. NOMS LATINS : conserve les noms d'offres et de destinations en alphabet latin "
+    "d'origine (Legend, iZZY, Campuce...), même dans une réponse en arabe.\n"
+    "9. PAS DE RÉPÉTITION : ne répète pas deux fois la même offre ou la même phrase.\n"
+    "10. CONCIS : réponds de manière claire, structurée et concise, sans bavardage."
+)
+
+# Canned competitor refusal, per language.
+_COMPETITOR_REFUSAL = {
+    "fr": "Je suis l'assistant virtuel de Djezzy et je ne peux pas vous renseigner sur "
+          "les offres d'autres opérateurs. Je serai ravi de vous présenter les offres Djezzy.",
+    "en": "I am Djezzy's virtual assistant and cannot provide information about other "
+          "operators. I'd be glad to tell you about Djezzy's offers.",
+    "ar": "أنا المساعد الافتراضي لجيزي ولا يمكنني تقديم معلومات عن المشغّلين الآخرين. "
+          "يسعدني أن أعرّفك بعروض جيزي.",
+    "dz": "أنا المساعد الافتراضي لجيزي ولا يمكنني تقديم معلومات عن المشغّلين الآخرين. "
+          "يسعدني أن أعرّفك بعروض جيزي.",
+}
+
+# Empty-context fallback, per language (no chunks matched).
+_NO_CONTEXT = {
+    "fr": "Je ne trouve pas cette information dans la base Djezzy actuelle. "
+          "Pouvez-vous reformuler ou préciser l'offre qui vous intéresse ?",
+    "en": "I can't find this in the current Djezzy data. Could you rephrase or specify "
+          "which offer you mean?",
+    "ar": "لا أجد هذه المعلومة في قاعدة بيانات جيزي الحالية. هل يمكنك إعادة الصياغة أو "
+          "تحديد العرض الذي يهمّك؟",
+    "dz": "لا أجد هذه المعلومة في قاعدة بيانات جيزي الحالية. هل يمكنك تحديد العرض الذي يهمّك؟",
+}
+
+# Per-language reply directive — placed in the USER turn (a known fix: directives
+# in the assistant turn leak into the output).
+_LANG_DIRECTIVE = {
+    "fr": "Réponds entièrement en français.",
+    "en": "Reply entirely in English.",
+    "ar": "أجب بالكامل باللغة العربية الفصحى.",
+    "dz": "أجب بالكامل باللغة العربية الفصحى (المعيارية)، حتى لو كان السؤال بالدارجة.",
+}
+
+
+# ===========================================================================
+# History (manual sliding window — NOT LangChain memory)
+# ===========================================================================
+def _format_history(history: list) -> str:
+    """Render the last HISTORY_WINDOW messages as a short transcript block.
+
+    `history` is a plain list of {"role": "user"|"assistant", "content": str}.
+    We take history[-HISTORY_WINDOW:] (last 4 exchanges) so long chats don't blow
+    up the prompt or lose the thread.
+    """
+    window = history[-config.HISTORY_WINDOW:] if history else []
+    if not window:
+        return ""
+    lines = ["Historique récent :"]
+    for msg in window:
+        who = "Client" if msg["role"] == "user" else "DjezzyBot"
+        lines.append(f"- {who} : {msg['content']}")
+    return "\n".join(lines) + "\n"
+
+
+# ===========================================================================
+# Prompt assembly
+# ===========================================================================
+def _format_context(docs: list) -> str:
+    """Join retrieved chunks into a context block, capped at MAX_CONTEXT_CHARS."""
+    parts = []
+    total = 0
+    for d in docs:
+        src = d.metadata.get("source_url", "")
+        block = f"[Source: {src}]\n{d.page_content}"
+        if total + len(block) > config.MAX_CONTEXT_CHARS:
+            break
+        parts.append(block)
+        total += len(block)
+    return "\n\n".join(parts)
+
+
+def build_prompt(question: str, context: str, lang: str, history: list,
+                 budget: int = None) -> str:
+    """Assemble the full Qwen chat-ML prompt string.
+
+    Structure: system rules → (user turn) history + context + [budget note] +
+    directive + question → empty assistant turn. All instructions live in the
+    system or USER turn; the assistant turn is left empty so the model only
+    produces the answer.
+
+    When `budget` is set, a hard ceiling is stated in the user turn (the context
+    is already Python-filtered to <=budget, but this makes the model enforce it
+    too, and clarifies that crédit/bonus amounts may exceed the budget).
+    """
+    hist = _format_history(history)
+    directive = _LANG_DIRECTIVE.get(lang, _LANG_DIRECTIVE["fr"])
+    budget_note = ""
+    if budget is not None:
+        budget_note = (
+            f"BUDGET DU CLIENT : {budget} DA. N'affiche AUCUNE offre dont le PRIX "
+            f"dépasse {budget} DA. Le contexte ne contient que des offres éligibles. "
+            f"Attention : les montants de crédit/bonus inclus dans une offre peuvent "
+            f"dépasser {budget} DA — ce n'est pas le prix, ne les confonds pas.\n\n"
+        )
+    user_turn = (
+        f"{hist}"
+        f"Contexte (base de données Djezzy) :\n{context if context else '(aucun)'}\n\n"
+        f"{budget_note}"
+        f"{directive}\n\n"
+        f"Question du client : {question}"
+    )
+
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_turn},
+    ]
+    # Use the tokenizer's chat template when available (correct Qwen formatting),
+    # otherwise fall back to a manual ChatML string (keeps pure tests working).
+    if _tokenizer is not None:
+        return _tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+    return (
+        f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
+        f"<|im_start|>user\n{user_turn}<|im_end|>\n"
+        f"<|im_start|>assistant\n"
+    )
+
+
+# ===========================================================================
+# Generation
+# ===========================================================================
+def _generate(prompt: str) -> str:
+    """Greedy generation (do_sample=False). Returns the decoded answer text."""
+    import torch
+    model, tokenizer = load_llm()
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        out = model.generate(
+            **inputs,
+            max_new_tokens=config.MAX_NEW_TOKENS,
+            do_sample=config.DO_SAMPLE,
+            repetition_penalty=config.REPETITION_PENALTY,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    gen = out[0][inputs["input_ids"].shape[1]:]
+    return tokenizer.decode(gen, skip_special_tokens=True).strip()
+
+
+# ===========================================================================
+# Shared core (used by BOTH the text path and the voice path)
+# ===========================================================================
+def generate_answer(question: str, lang: str, vector_db, history: list = None) -> dict:
+    """Retrieve → route handling → build prompt → generate. The single source of
+    truth for "understand the question and answer it", so the text path (answer)
+    and the voice path (voice.voice_answer) can never drift.
+
+    Returns {text, route, t_retrieval, t_generation}. Retrieval and generation are
+    timed separately; competitor/empty(out-of-domain) routes skip generation and
+    return a canned reply. `lang` is supplied by the caller (detect_language for
+    text, the STT-detected language for voice).
+    """
+    history = history or []
+    stages = {}
+
+    with timed(stages, "retrieval"):
+        docs = smart_retrieve(question, lang, vector_db)
+
+    # competitor firewall / out-of-domain / no match — no generation needed
+    if docs == config.COMPETITOR_SENTINEL:
+        return {"text": _COMPETITOR_REFUSAL.get(lang, _COMPETITOR_REFUSAL["fr"]),
+                "route": "competitor",
+                "t_retrieval": stages["retrieval"], "t_generation": 0.0}
+    if not docs:
+        return {"text": _NO_CONTEXT.get(lang, _NO_CONTEXT["fr"]),
+                "route": "no_context",
+                "t_retrieval": stages["retrieval"], "t_generation": 0.0}
+
+    budget = budget_of(question)        # hard ceiling for the prompt (and route tag)
+    route = "budget" if budget is not None else "normal"
+    context = _format_context(docs)
+    prompt = build_prompt(question, context, lang, history, budget)
+    with timed(stages, "generation"):
+        text = _generate(prompt)
+
+    return {"text": text, "route": route,
+            "t_retrieval": stages["retrieval"], "t_generation": stages["generation"]}
+
+
+# ===========================================================================
+# Public: text answer
+# ===========================================================================
+def answer(question: str, vector_db, history: list = None) -> dict:
+    """Answer one typed question end-to-end. Thin wrapper over generate_answer
+    that detects the language and records text-path latency. Returns
+    {text, lang, route, t_retrieval, t_generation}.
+    """
+    lang = detect_language(question)
+    res = generate_answer(question, lang, vector_db, history)
+    record_latency("text", res["route"],
+                   {"retrieval": res["t_retrieval"], "generation": res["t_generation"]})
+    return {"text": res["text"], "lang": lang, "route": res["route"],
+            "t_retrieval": res["t_retrieval"], "t_generation": res["t_generation"]}
