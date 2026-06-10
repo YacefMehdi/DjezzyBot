@@ -1,0 +1,331 @@
+%% Copyright 2007 Ulf Lindgren
+%
+% This work may be distributed and/or modified under the conditions of the LaTeX
+% Project Public License, either version 1.3 of this license or (at your option)
+% any later version. The latest version of this license is in
+%   http://www.latex-project.org/lppl.txt
+% and version 1.3 or later is part of all distributions of LaTeX version
+% 2005/12/01 or later.
+%
+% This work has the LPPL maintenance status `maintained'.
+% 
+% The Current Maintainer of this work is Ulf Lindgren.
+%
+% This work consists of all files listed in manifest.txt.
+%
+%% This statement added 2010/12/10 by Clea F. Rees following correspondence
+%% between Ulf Lindgren and Karl Berry concerning licensing.
+
+%%% Copyright   Ulf A. Lindgren
+%%%
+%%% Note        Premission is granted to modify this file under
+%%%             the condition that it is saved using another
+%%%             file and package name.
+%%%
+%%% Revision    1.1 (1997)
+%%%
+%%%             Jan. 8th Modified package name base date option
+%%%             Jan. 22th Modified FmN and FmTi for error in book.cls
+%%%                  \MakeUppercase{#}->{\MakeUppercase#}
+%%%             Apr. 6th Modified Lenny option to prevent undesired 
+%%%                  skip of line.
+%%%             Nov. 8th Fixed \@chapapp for AMS
+%%%
+%%% Revision    1.2 (1998)
+%%%
+%%%             Feb. 11th Fixed appendix problem related to Bjarne
+%%%             Aug. 11th Fixed problem related to 11pt and 12pt 
+%%%                  suggested by Tomas Lundberg. THANKS!
+%%%
+%%% Revision    1.3 (2004)
+%%%             Sep. 20th problem with frontmatter, mainmatter and
+%%%                  backmatter, pointed out by Lapo Mori
+%%%
+%%% Revision    1.31 (2004)
+%%%             Sep. 21th problem with the Rejne definition streched text
+%%%                  caused ugly gaps in the vrule aligned with the title
+%%%                  text. Kindly pointed out to me by Hendri Adriaens
+%%%
+%%% Revision    1.32 (2005)
+%%%             Jun. 23th compatibility problem with the KOMA class 'scrbook.cls'
+%%%                  a remedy is a redefinition of '\@schapter' in
+%%%                  line with that used in KOMA. The problem was pointed
+%%%                  out to me by Mikkel Holm Olsen
+%%%
+%%% Revision    1.33 (2005)
+%%%             Aug. 9th misspelled ``TWELV'' corrected, the error was pointed
+%%%                  out to me by George Pearson
+%%%
+%%% Revision    1.34 (2007)
+%%%             Added an alternative to Lenny provided by Peter
+%%%             Osborne (2005-11-28)
+%%%             Corrected front, main and back matter, based on input
+%%%             from Bas van Gils (2006-04-24)
+%%%             Jul. 30th Added Bjornstrup option provided by Jean-Marc
+%%%             Francois (2007-01-05).
+%%%             Reverted to \MakeUppercase{#} see rev 1.1, solved
+%%%             problem with MakeUppercase and MakeLowercase pointed
+%%%             out by Marco Feuerstein  (2007-06-06) 
+
+
+%%% Last modified   Jul. 2007
+
+\NeedsTeXFormat{LaTeX2e}[1995/12/01]
+\ProvidesPackage{fncychap}
+             [2007/07/30 v1.34
+                 LaTeX package (Revised chapters)]
+
+%%%% For conditional inclusion of color
+\newif\ifusecolor
+\usecolorfalse
+
+
+
+%%%% DEFINITION OF Chapapp variables
+\newcommand{\CNV}{\huge\bfseries}
+\newcommand{\ChNameVar}[1]{\renewcommand{\CNV}{#1}}
+
+
+%%%% DEFINITION OF TheChapter variables
+\newcommand{\CNoV}{\huge\bfseries}
+\newcommand{\ChNumVar}[1]{\renewcommand{\CNoV}{#1}}
+
+\newif\ifUCN
+\UCNfalse
+\newif\ifLCN
+\LCNfalse
+\def\ChNameLowerCase{\LCNtrue\UCNfalse}
+\def\ChNameUpperCase{\UCNtrue\LCNfalse}
+\def\ChNameAsIs{\UCNfalse\LCNfalse}
+
+%%%%% Fix for AMSBook 971008
+
+\@ifundefined{@chapapp}{\let\@chapapp\chaptername}{}
+
+
+%%%%% Fix for Bjarne and appendix 980211
+
+\newif\ifinapp
+\inappfalse
+\renewcommand\appendix{\par
+  \setcounter{chapter}{0}%
+  \setcounter{section}{0}%
+  \inapptrue%
+  \renewcommand\@chapapp{\appendixname}%
+  \renewcommand\thechapter{\@Alph\c@chapter}}
+
+%%%%% Fix for frontmatter, mainmatter, and backmatter 040920
+
+\@ifundefined{@mainmatter}{\newif\if@mainmatter \@mainmattertrue}{}
+
+%%%%%
+
+
+
+\newcommand{\FmN}[1]{%
+\ifUCN
+   {\MakeUppercase{#1}}\LCNfalse
+\else
+   \ifLCN
+      {\MakeLowercase{#1}}\UCNfalse
+   \else #1
+   \fi
+\fi}
+
+
+%%%% DEFINITION OF Title variables
+\newcommand{\CTV}{\Huge\bfseries}
+\newcommand{\ChTitleVar}[1]{\renewcommand{\CTV}{#1}}
+
+%%%% DEFINITION OF the basic rule width
+\newlength{\RW}
+\setlength{\RW}{1pt}
+\newcommand{\ChRuleWidth}[1]{\setlength{\RW}{#1}}
+
+\newif\ifUCT
+\UCTfalse
+\newif\ifLCT
+\LCTfalse
+\def\ChTitleLowerCase{\LCTtrue\UCTfalse}
+\def\ChTitleUpperCase{\UCTtrue\LCTfalse}
+\def\ChTitleAsIs{\UCTfalse\LCTfalse}
+\newcommand{\FmTi}[1]{%
+\ifUCT
+   {\MakeUppercase{#1}}\LCTfalse
+\else
+   \ifLCT
+      {\MakeLowercase{#1}}\UCTfalse
+   \else {#1}
+   \fi
+\fi}
+
+
+
+\newlength{\mylen}
+\newlength{\myhi}
+\newlength{\px}
+\newlength{\py}
+\newlength{\pyy}
+\newlength{\pxx}
+
+
+\def\mghrulefill#1{\leavevmode\leaders\hrule\@height #1\hfill\kern\z@}
+
+\newcommand{\DOCH}{%
+  \CNV\FmN{\@chapapp}\space \CNoV\thechapter
+  \par\nobreak
+  \vskip 20\p@
+  }
+\newcommand{\DOTI}[1]{%
+    \CTV\FmTi{#1}\par\nobreak
+    \vskip 40\p@
+    }
+\newcommand{\DOTIS}[1]{%
+    \CTV\FmTi{#1}\par\nobreak
+    \vskip 40\p@
+    }
+
+%%%%%% SONNY DEF
+
+\DeclareOption{Sonny}{%
+  \ChNameVar{\Large\sf}
+  \ChNumVar{\Huge}
+  \ChTitleVar{\Large\sf}
+  \ChRuleWidth{0.5pt}
+  \ChNameUpperCase
+  \renewcommand{\DOCH}{%
+    \raggedleft
+    \CNV\FmN{\@chapapp}\space \CNoV\thechapter
+    \par\nobreak
+    \vskip 40\p@}
+  \renewcommand{\DOTI}[1]{%
+    \CTV\raggedleft\mghrulefill{\RW}\par\nobreak
+    \vskip 5\p@
+    \CTV\FmTi{#1}\par\nobreak
+    \mghrulefill{\RW}\par\nobreak
+    \vskip 40\p@}
+  \renewcommand{\DOTIS}[1]{%
+    \CTV\raggedleft\mghrulefill{\RW}\par\nobreak
+    \vskip 5\p@
+    \CTV\FmTi{#1}\par\nobreak
+    \mghrulefill{\RW}\par\nobreak
+    \vskip 40\p@}
+}
+
+%%%%%% LENNY DEF
+
+\DeclareOption{Lenny}{%
+
+  \ChNameVar{\fontsize{14}{16}\usefont{OT1}{phv}{m}{n}\selectfont}
+  \ChNumVar{\fontsize{60}{62}\usefont{OT1}{ptm}{m}{n}\selectfont}
+  \ChTitleVar{\Huge\bfseries\rm}
+  \ChRuleWidth{1pt}
+  \renewcommand{\DOCH}{%
+    \settowidth{\px}{\CNV\FmN{\@chapapp}}
+    \addtolength{\px}{2pt}
+    \settoheight{\py}{\CNV\FmN{\@chapapp}}
+    \addtolength{\py}{1pt}
+
+    \settowidth{\mylen}{\CNV\FmN{\@chapapp}\space\CNoV\thechapter}
+    \addtolength{\mylen}{1pt}
+    \settowidth{\pxx}{\CNoV\thechapter}
+    \addtolength{\pxx}{-1pt}
+
+    \settoheight{\pyy}{\CNoV\thechapter}
+    \addtolength{\pyy}{-2pt}
+    \setlength{\myhi}{\pyy}
+    \addtolength{\myhi}{-1\py}
+    \par
+    \parbox[b]{\textwidth}{%
+    \rule[\py]{\RW}{\myhi}%
+    \hskip -\RW%
+    \rule[\pyy]{\px}{\RW}%
+    \hskip -\px%
+    \raggedright%
+    \CNV\FmN{\@chapapp}\space\CNoV\thechapter%
+    \hskip1pt%
+    \mghrulefill{\RW}%
+    \rule{\RW}{\pyy}\par\nobreak%
+    \vskip -\baselineskip%
+    \vskip -\pyy%
+    \hskip \mylen%
+    \mghrulefill{\RW}\par\nobreak%
+    \vskip \pyy}%
+    \vskip 20\p@}
+ 
+
+  \renewcommand{\DOTI}[1]{%
+    \raggedright
+    \CTV\FmTi{#1}\par\nobreak
+    \vskip 40\p@}
+
+  \renewcommand{\DOTIS}[1]{%
+    \raggedright
+    \CTV\FmTi{#1}\par\nobreak
+    \vskip 40\p@}
+ }
+
+%%%%%% Peter Osbornes' version of LENNY DEF
+
+\DeclareOption{PetersLenny}{%
+
+% five new lengths 
+\newlength{\bl}                           %  bottom left   : orig \space
+\setlength{\bl}{6pt}
+\newcommand{\BL}[1]{\setlength{\bl}{#1}}
+\newlength{\br}                           %  bottom right  : orig 1pt
+\setlength{\br}{1pt}
+\newcommand{\BR}[1]{\setlength{\br}{#1}}
+\newlength{\tl}                           %  top left      : orig 2pt
+\setlength{\tl}{2pt}
+\newcommand{\TL}[1]{\setlength{\tl}{#1}}
+\newlength{\trr}                           %  top right      :orig 1pt 
+\setlength{\trr}{1pt}
+\newcommand{\TR}[1]{\setlength{\trr}{#1}}
+\newlength{\blrule}                           %  top right      :orig 1pt 
+\setlength{\trr}{0pt}
+\newcommand{\BLrule}[1]{\setlength{\blrule}{#1}}
+
+
+  \ChNameVar{\fontsize{14}{16}\usefont{OT1}{phv}{m}{n}\selectfont}
+  \ChNumVar{\fontsize{60}{62}\usefont{OT1}{ptm}{m}{n}\selectfont}
+  \ChTitleVar{\Huge\bfseries\rm}
+  \ChRuleWidth{1pt}
+\renewcommand{\DOCH}{%
+
+
+%%%%%%%                                   tweaks for 1--9 and A--Z
+\ifcase\c@chapter\relax%
+\or\BL{-3pt}\TL{-4pt}\BR{0pt}\TR{-6pt}%1
+\or\BL{0pt}\TL{-4pt}\BR{2pt}\TR{-4pt}%2
+\or\BL{0pt}\TL{-4pt}\BR{2pt}\TR{-4pt}%3
+\or\BL{0pt}\TL{5pt}\BR{2pt}\TR{-4pt}%4
+\or\BL{0pt}\TL{3pt}\BR{2pt}\TR{-4pt}%5
+\or\BL{-1pt}\TL{0pt}\BR{2pt}\TR{-2pt}%6
+\or\BL{0pt}\TL{-3pt}\BR{2pt}\TR{-2pt}%7
+\or\BL{0pt}\TL{-3pt}\BR{2pt}\TR{-2pt}%8
+\or\BL{0pt}\TL{-3pt}\BR{-4pt}\TR{-2pt}%9
+\or\BL{-3pt}\TL{-3pt}\BR{2pt}\TR{-7pt}%10
+\or\BL{-6pt}\TL{-6pt}\BR{0pt}\TR{-9pt}%11
+\or\BL{-6pt}\TL{-6pt}\BR{2pt}\TR{-7pt}%12
+\or\BL{-5pt}\TL{-5pt}\BR{0pt}\TR{-9pt}%13
+\or\BL{-6pt}\TL{-6pt}\BR{0pt}\TR{-9pt}%14
+\or\BL{-3pt}\TL{-3pt}\BR{3pt}\TR{-6pt}%15
+\or\BL{-3pt}\TL{-3pt}\BR{3pt}\TR{-6pt}%16
+\or\BL{-5pt}\TL{-3pt}\BR{-8pt}\TR{-6pt}%17
+\or\BL{-5pt}\TL{-5pt}\BR{0pt}\TR{-9pt}%18
+\or\BL{-3pt}\TL{-3pt}\BR{-6pt}\TR{-9pt}%19
+\or\BL{0pt}\TL{0pt}\BR{0pt}\TR{-5pt}%20
+\fi
+
+\ifinapp\ifcase\c@chapter\relax%
+\or\BL{0pt}\TL{14pt}\BR{5pt}\TR{-19pt}%A
+\or\BL{0pt}\TL{-5pt}\BR{-3pt}\TR{-8pt}%B
+\or\BL{-3pt}\TL{-2pt}\BR{1pt}\TR{-6pt}\BLrule{0pt}%C
+\or\BL{0pt}\TL{-5pt}\BR{-3pt}\TR{-8pt}\BLrule{0pt}%D
+\or\BL{0pt}\TL{-5pt}\BR{2pt}\TR{-3pt}%E
+\or\BL{0pt}\TL{-5pt}\BR{-10pt}\TR{-1pt}%F
+\or\BL{-3pt}\TL{0pt}\BR{0pt}\TR{-7pt}%G
+\or\BL{0pt}\TL{-5pt}\BR{3pt}\TR{-1pt}%H
+\or\BL{0pt}\TL{-5pt}\BR{3pt}\TR{-1pt}%I
+\or\BL{2pt}\TL{0pt}\BR{-3pt}\TR{1pt}%J
