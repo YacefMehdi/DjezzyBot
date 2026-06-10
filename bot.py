@@ -95,6 +95,10 @@ def load_llm():
         torch_dtype=torch.float16,
     )
     _model.eval()
+    # Qwen's generation_config ships max_length=32768, which clashes with our
+    # max_new_tokens=768 and makes transformers warn on every generate(). Drop it
+    # so only max_new_tokens governs the cap (behaviour unchanged, warning gone).
+    _model.generation_config.max_length = None
     return _model, _tokenizer
 
 

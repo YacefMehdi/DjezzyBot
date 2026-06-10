@@ -23,3 +23,18 @@ full_crawl.log
 Thumbs.db
 .vscode/
 .idea/
+
+# LaTeX build artifacts (thesis source is tracked; generated files are not)
+*.aux
+*.bbl
+*.blg
+*.lof
+*.lot
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*-eps-converted-to.pdf
+# Office lock/temp files
+~$*

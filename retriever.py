@@ -47,6 +47,13 @@ _BUDGET_RE = re.compile(r"(\d[\d\s]*)\s*(?:da|dinars?|dzd|دج|د\.?ج)\b", re.I
 # Price inside a chunk, e.g. "3 000 DA", "500 DA".
 _PRICE_RE = re.compile(r"(\d[\d\s]{0,7}\d|\d)\s*(?:da|dinars?|dzd)\b", re.IGNORECASE)
 
+# A DA amount immediately followed by "/ <unit>" is a per-UNIT RATE ("5 DA/SMS",
+# "4.99 DA / Mo", "5 DA/30 Sec"), NOT a subscription price. Rates must never be read
+# as an offer's price — they were polluting the budget route with tariff-table noise
+# (every "5 DA/SMS" looked like a 5 DA offer).
+_RATE_AFTER_RE = re.compile(
+    r"\s*/\s*\d*\s*(?:sms|mo|mb|go|ko|min|sec|secondes?|message|appel)", re.IGNORECASE)
+
 # Words that mark a DA amount as a crédit / bonus / gift rather than the offer's
 # subscription PRICE. A Djezzy tier like "1 200 DA" can *include* "3 000 DA de
 # crédit" — that 3000 is not a price and must not be treated as a tier boundary
@@ -265,14 +272,26 @@ def _dedup(docs: list) -> list:
 
 
 def _chunk_price(text: str):
-    """Extract the smallest DA price found in a chunk, or None."""
+    """Extract the smallest DA SUBSCRIPTION price in a chunk, or None.
+
+    Per-unit rates ("5 DA/SMS", "4.99 DA/Mo") are skipped — they are tariffs, not
+    prices, and would otherwise make every tariff table look like a cheap offer."""
+    low = text.lower()
     prices = []
-    for m in _PRICE_RE.finditer(text.lower()):
+    for m in _PRICE_RE.finditer(low):
+        if _RATE_AFTER_RE.match(low, m.end()):
+            continue                            # per-unit rate, not a price
         try:
             prices.append(int(m.group(1).replace(" ", "")))
         except ValueError:
             continue
     return min(prices) if prices else None
+
+
+def _names_an_offer(text: str) -> bool:
+    """True if the chunk mentions a known offer name — used to drop nameless
+    fee/tariff tables from the budget pool (they caused hallucinated offer names)."""
+    return any(lexicon.offer_in_text(n, text) for n in lexicon.OFFER_NAMES)
 
 
 def _doc_price(doc):
@@ -295,6 +314,8 @@ def _is_tier_price(lines: list, i: int):
     m = _PRICE_RE.search(lines[i])
     if not m:
         return None
+    if _RATE_AFTER_RE.match(lines[i].lower(), m.end()):
+        return None                            # per-unit rate (5 DA/SMS), not a tier
     ctx = " ".join(lines[i: i + 2]).lower()
     if any(w in ctx for w in _CREDIT_WORDS):
         return None
@@ -521,7 +542,12 @@ def smart_retrieve(query: str, lang: str, vector_db):
         # also pull every offer's chunks so cheap offers aren't missed by dense rank
         for name in lexicon.OFFER_NAMES:
             pool.extend(_exact_match_chunks(vector_db, name, 2))
-        return _filter_by_budget_python(_dedup(pool), budget)
+        pool = _dedup(pool)
+        # keep only chunks that NAME an offer — drops generic fee/tariff tables that
+        # have no offer and led the model to invent offer names. Fall back to the full
+        # pool if nothing names an offer (so budget never returns empty by accident).
+        named = [d for d in pool if _names_an_offer(d.page_content)]
+        return _filter_by_budget_python(named or pool, budget)
 
     # --- NAMED OFFER: the offer's WHOLE page (all tiers) + a couple dense --------
     if route == "named":
