@@ -5,7 +5,7 @@ Pure data + a couple of tiny pure functions, no heavy dependencies. This is the
 "vocabulary" the smart retriever uses to understand what a user is asking before
 it ever touches the vector store:
 
-  * OFFER_NAMES        — canonical Djezzy offer/service names (for routing + OCR signal)
+  * OFFER_NAMES        — canonical Djezzy offer/service names (for routing)
   * SYNONYMS           — query expansion (FR + Darija → canonical retrieval terms)
   * COMPETITORS        — trigger the competitor firewall (Latin + Arabic script)
   * ROAMING_TRIGGERS   — destination words → roaming markers (incl. Arabic)
@@ -23,8 +23,7 @@ import unicodedata
 # ---------------------------------------------------------------------------
 # Canonical offer / service names
 # ---------------------------------------------------------------------------
-# Used for: catalogue enumeration, named-offer detection, comparison detection,
-# and as an OCR "signal" (OCR text mentioning one of these is worth keeping).
+# Used for: catalogue enumeration, named-offer detection, comparison detection.
 # Order matters for detection: multi-word / more-specific names come first so
 # "legend max" is matched before the bare "legend".
 # The real prepaid/postpaid FORFAIT gammes (verified against the live crawl).
@@ -311,8 +310,10 @@ TELECOM_SIGNALS = [
     # price / purchase intent (keeps short follow-ups in domain)
     "combien", "prix", "coute", "coutent", "cout", "payer", "acheter", "souscrire",
     "cher", "chhal",
-    # Arabic
+    # Arabic — offers/price/telecom nouns + DEVICES (phones), so Arabic questions
+    # like "هل تبيعون هواتف؟" reach retrieval instead of the out-of-domain refusal.
     "عرض", "عروض", "انترنت", "رصيد", "سعر", "اسعار", "مكالمات", "باقة", "جيجا", "روم",
+    "هاتف", "هواتف", "تليفون", "تيليفون", "جوال", "موبايل", "فون", "شريحة", "خط",
 ]
 
 _TELECOM_ASCII_RE = [

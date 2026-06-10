@@ -30,7 +30,7 @@ text ──────────────────┘                  
 | Vector store | FAISS `IndexFlatIP` (cosine) — no reranker |
 | STT | faster-whisper `medium` (float16) |
 | TTS | Coqui XTTS-v2 (loaded on demand) |
-| Scraping | Playwright + BeautifulSoup + Tesseract OCR |
+| Scraping | Playwright + BeautifulSoup (HTML text only, no OCR) |
 | UI / orchestration | Gradio + LangChain |
 
 ### The 7 retrieval routes
@@ -46,7 +46,7 @@ refusal.
 |---|---|
 | `config.py` | Single source of truth (model IDs, domains, paths, tunables) |
 | `data/lexicon.py` | Offer names, synonyms, competitor/roaming/budget/comparison cues (FR/AR/Darija) |
-| `scraper.py` | Self-discovering crawler (sitemap + BFS + path hints) + image OCR |
+| `scraper.py` | Self-discovering crawler (sitemap + BFS + path hints), HTML text |
 | `indexer.py` | Chunking + e5 embeddings + FAISS build/load |
 | `retriever.py` | `smart_retrieve()` — the 7-route intent router |
 | `bot.py` | LLM load, prompt assembly, language detection, history, latency |

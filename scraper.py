@@ -1,9 +1,8 @@
 """
-scraper.py — Self-discovering Djezzy crawler with image OCR.
+scraper.py — Self-discovering Djezzy crawler (HTML text).
 
 This is the data source for the whole bot. It must find offer pages BY ITSELF
-(no manual URL list) and extract text that lives only inside images. Three
-discovery layers are combined and deduplicated:
+(no manual URL list). Three discovery layers are combined and deduplicated:
 
   (a) sitemaps      — parse /sitemap.xml and /sitemap_index.xml on every domain
   (b) BFS crawl     — render each page with Playwright (depth <= CRAWL_MAX_DEPTH),
@@ -12,10 +11,8 @@ discovery layers are combined and deduplicated:
                       listing pages don't link to them cleanly.
   (c) path hints    — probe known path patterns (PATH_HINTS) on each domain.
 
-For every kept page we also OCR its non-decorative images (Tesseract ara+fra+eng),
-because many offers/prices appear only as graphics. OCR text is kept only when it
-carries a signal (a digit, DA/Go/Mo, or a known offer name) and is appended under
-an [IMAGE]: tag.
+Djezzy describes every offer (prices, volumes, validity...) in the page HTML, so
+plain text extraction is enough — no image OCR is needed.
 
 Public API
 ----------
@@ -24,14 +21,13 @@ Public API
     scrape_page(page, url) -> dict | None      # page = Playwright Page
     run_scrape() -> list[dict]                 # full pipeline, writes DATA_JSON
 
-Each kept page is {title, url, content, has_ocr, scraped_at}.
+Each kept page is {title, url, content, scraped_at}.
 
-Heavy deps (playwright, bs4, pytesseract, PIL, requests) are imported lazily inside
-functions so that importing this module — and the pure helpers — stays cheap and
-testable without a browser installed.
+Heavy deps (playwright, bs4, requests) are imported lazily inside functions so that
+importing this module — and the pure helpers — stays cheap and testable without a
+browser installed.
 """
 
-import io
 import os
 import json
 import time
@@ -41,7 +37,6 @@ from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse, urldefrag
 
 import config
-from data.lexicon import OFFER_NAMES
 
 logger = logging.getLogger("djezzybot.scraper")
 
@@ -54,9 +49,6 @@ _SKIP_EXT = (
 
 # Host portion of each configured domain, used to keep the crawl on-site.
 _ALLOWED_HOSTS = {urlparse(d).netloc.lower() for d in config.DOMAINS}
-
-# OCR signal: any offer name (lowercased) also counts as a "keep" signal.
-_OFFER_SIGNALS = [n.lower() for n in OFFER_NAMES]
 
 
 # ===========================================================================
@@ -90,8 +82,17 @@ def _maybe_thread(fn, *args, **kwargs):
 # URL helpers (pure)
 # ===========================================================================
 def _normalize_url(url: str) -> str:
-    """Drop the fragment and trailing slash so we don't crawl the same page twice."""
+    """Canonicalize a URL so the same page isn't crawled twice.
+
+    Drops the #fragment, the ?query string, and any trailing slash. Stripping the
+    query string is what keeps the crawl's link graph FINITE: tracking params
+    (?utm=…), pagination (?page=2) and session variants would otherwise spawn
+    endless distinct URLs. Djezzy uses clean path-based URLs (verified: no content
+    page depends on a query string), so this is safe and collapses those variants
+    into one page — letting frontier-exhaustion, not a page count, end the crawl.
+    """
     url, _ = urldefrag(url)
+    url = url.split("?", 1)[0]                      # drop query string
     if url.endswith("/") and len(urlparse(url).path) > 1:
         url = url[:-1]
     return url
@@ -340,125 +341,15 @@ def _page_title(html: str) -> str:
 
 
 # ===========================================================================
-# Image OCR
-# ===========================================================================
-def _is_decorative(src: str, width, height) -> bool:
-    """True if an image looks decorative and should be skipped for OCR."""
-    s = (src or "").lower()
-    if any(tok in s for tok in config.OCR_SKIP_SRC):
-        return True
-    for dim in (width, height):
-        try:
-            if dim is not None and int(dim) < config.OCR_MIN_IMG_PX:
-                return True
-        except (TypeError, ValueError):
-            pass
-    return False
-
-
-def _ocr_has_signal(text: str) -> bool:
-    """Keep OCR text only if it carries a real signal (price/volume/offer name)."""
-    t = text.lower()
-    if any(ch.isdigit() for ch in t):
-        return True
-    if any(tok in t for tok in config.OCR_SIGNAL_TOKENS):   # da, go, mo
-        return True
-    if any(name in t for name in _OFFER_SIGNALS):
-        return True
-    return False
-
-
-def _clean_ocr_text(text: str) -> str:
-    """Tidy raw Tesseract output: collapse whitespace, drop 1–2 char noise lines."""
-    lines = []
-    for ln in text.splitlines():
-        ln = " ".join(ln.split())
-        if len(ln) >= 3:
-            lines.append(ln)
-    return "\n".join(lines)
-
-
-_TESSERACT_OK = None  # cached availability of the tesseract binary
-
-
-def _tesseract_available() -> bool:
-    """True if the Tesseract binary is installed and callable (cached).
-
-    OCR is optional: if Tesseract isn't present we skip image OCR entirely so the
-    crawl doesn't waste time downloading images it can't read.
-    """
-    global _TESSERACT_OK
-    if _TESSERACT_OK is None:
-        try:
-            import pytesseract
-            pytesseract.get_tesseract_version()
-            _TESSERACT_OK = True
-        except Exception:
-            _TESSERACT_OK = False
-            logger.info("Tesseract not found — image OCR disabled (HTML text only)")
-    return _TESSERACT_OK
-
-
-def ocr_page_images(page_url: str, html: str) -> str:
-    """OCR the non-decorative images on a page; return kept text (or "").
-
-    For each candidate <img>: resolve its URL, download bytes, run Tesseract in
-    ara+fra+eng, clean, and keep only if it has a signal. Kept blocks are joined.
-    Returns "" immediately if Tesseract isn't installed (no image downloads).
-    """
-    if not _tesseract_available():
-        return ""
-
-    import requests
-    import pytesseract
-    from PIL import Image
-    from bs4 import BeautifulSoup
-
-    soup = BeautifulSoup(html, "html.parser")
-    headers = {"User-Agent": config.USER_AGENT}
-    kept = []
-
-    for img in soup.find_all("img"):
-        src = img.get("src") or img.get("data-src") or ""
-        if not src:
-            continue
-        if _is_decorative(src, img.get("width"), img.get("height")):
-            continue
-        img_url = urljoin(page_url, src)
-        try:
-            resp = requests.get(img_url, headers=headers, timeout=15)
-            if resp.status_code != 200:
-                continue
-            image = Image.open(io.BytesIO(resp.content))
-            # second decorative check now that we know real pixel dimensions
-            if _is_decorative(src, image.width, image.height):
-                continue
-            raw = pytesseract.image_to_string(image, lang=config.OCR_LANGS)
-        except Exception as e:
-            logger.debug("OCR failed for %s: %s", img_url, e)
-            continue
-        cleaned = _clean_ocr_text(raw)
-        if cleaned and _ocr_has_signal(cleaned):
-            kept.append(cleaned)
-
-    return "\n".join(kept)
-
-
-# ===========================================================================
 # Per-page scrape
 # ===========================================================================
 def _scrape_from_html(url: str, html: str) -> dict | None:
-    """Build a page dict from already-rendered HTML (clean + OCR), or None.
+    """Build a page dict from already-rendered HTML (clean text), or None.
 
     Kept separate from rendering so the crawl can render a page once and both
     harvest its links and scrape its content from the same HTML.
     """
     content = clean_html(html)
-    ocr_text = ocr_page_images(url, html)
-    has_ocr = bool(ocr_text)
-    if has_ocr:
-        content = f"{content}\n{config.OCR_TAG} {ocr_text}".strip()
-
     if len(content) < config.MIN_PAGE_CHARS:
         return None
 
@@ -466,13 +357,12 @@ def _scrape_from_html(url: str, html: str) -> dict | None:
         "title": _page_title(html),
         "url": url,
         "content": content,
-        "has_ocr": has_ocr,
         "scraped_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
 def scrape_page(page, url: str) -> dict | None:
-    """Render `url`, then clean + OCR it. Thin wrapper around _scrape_from_html.
+    """Render `url`, then clean it. Thin wrapper around _scrape_from_html.
 
     Returns None if the page fails to load or its content is shorter than
     MIN_PAGE_CHARS.
@@ -510,11 +400,19 @@ def _run_scrape_impl() -> list:
     queue = [(u, 0) for u in seeds]   # BFS queue of (url, depth)
     pages = []
     cap = config.CRAWL_MAX_PAGES
+    deadline = time.time() + config.CRAWL_MAX_MINUTES * 60   # wall-clock fuse
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(user_agent=config.USER_AGENT)
+        # Normal exit is an EMPTY queue (frontier exhausted = whole site crawled).
+        # The cap and the deadline are only safety fuses against a runaway crawl.
         while queue and len(visited) < cap:
+            if time.time() > deadline:
+                logger.warning("crawl time fuse (%d min) reached — stopping with "
+                               "%d visited, %d still queued",
+                               config.CRAWL_MAX_MINUTES, len(visited), len(queue))
+                break
             url, depth = queue.pop(0)
             if url in visited:
                 continue
@@ -535,8 +433,8 @@ def _run_scrape_impl() -> list:
                 rec = None
             if rec:
                 pages.append(rec)
-                logger.info("[%d/%d] kept  %s  (ocr=%s, %d chars)",
-                            n, cap, url, rec["has_ocr"], len(rec["content"]))
+                logger.info("[%d/%d] kept  %s  (%d chars)",
+                            n, cap, url, len(rec["content"]))
             else:
                 logger.info("[%d/%d] drop (too short)  %s", n, cap, url)
 
@@ -558,11 +456,10 @@ def _run_scrape_impl() -> list:
         os.makedirs(os.path.dirname(config.DATA_JSON), exist_ok=True)
         with open(config.DATA_JSON, "w", encoding="utf-8") as f:
             json.dump(pages, f, ensure_ascii=False, indent=2)
-        logger.info("run_scrape: rendered %d pages, kept %d (%d with OCR), "
-                    "discovered %d URLs -> %s",
-                    len(visited), len(pages),
-                    sum(1 for pg in pages if pg["has_ocr"]),
-                    len(discovered), config.DATA_JSON)
+        stop = "frontier exhausted (whole site crawled)" if not queue \
+            else f"stopped by fuse with {len(queue)} URLs still queued"
+        logger.info("run_scrape: rendered %d pages, kept %d, discovered %d URLs — %s -> %s",
+                    len(visited), len(pages), len(discovered), stop, config.DATA_JSON)
     else:
         logger.error("run_scrape: rendered %d pages but kept 0; "
                      "leaving previous cache untouched", len(visited))
@@ -582,5 +479,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
     result = run_scrape()
-    print(f"Scraped {len(result)} pages "
-          f"({sum(1 for p in result if p['has_ocr'])} with OCR).")
+    print(f"Scraped {len(result)} pages.")

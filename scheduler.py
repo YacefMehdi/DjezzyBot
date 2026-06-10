@@ -8,7 +8,7 @@ force_refresh() for the "Refresh" button in the UI.
 
 Public API
 ----------
-    force_refresh() -> dict          # {ok, n_pages, n_ocr, ts, message}
+    force_refresh() -> dict          # {ok, n_pages, ts, message}
     start_scheduler(on_done=None)    # launch the daily 03:00 daemon thread
 
 Both paths share _do_refresh(), which scrapes -> rebuilds -> hot-swaps the shared
@@ -59,21 +59,19 @@ def _do_refresh() -> dict:
                 msg = "refresh FAILED: scraper returned 0 pages; keeping old index"
                 logger.error(msg)
                 _log_line(msg)
-                return {"ok": False, "n_pages": 0, "n_ocr": 0, "ts": ts, "message": msg}
+                return {"ok": False, "n_pages": 0, "ts": ts, "message": msg}
 
             store = indexer.build_index(pages)
             CURRENT_INDEX = store
-            n_ocr = sum(1 for p in pages if p.get("has_ocr"))
-            msg = f"refresh OK: {len(pages)} pages ({n_ocr} with OCR) reindexed"
+            msg = f"refresh OK: {len(pages)} pages reindexed"
             logger.info(msg)
             _log_line(msg)
-            return {"ok": True, "n_pages": len(pages), "n_ocr": n_ocr,
-                    "ts": ts, "message": msg}
+            return {"ok": True, "n_pages": len(pages), "ts": ts, "message": msg}
         except Exception as e:
             msg = f"refresh ERROR: {e}"
             logger.exception(msg)
             _log_line(msg)
-            return {"ok": False, "n_pages": 0, "n_ocr": 0, "ts": ts, "message": msg}
+            return {"ok": False, "n_pages": 0, "ts": ts, "message": msg}
 
 
 def force_refresh() -> dict:

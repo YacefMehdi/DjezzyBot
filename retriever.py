@@ -158,6 +158,95 @@ def _exact_match_chunks(vector_db, offer: str, limit: int):
     return out
 
 
+def _copy_doc(doc, new_text: str = None):
+    """A copy of a Document (optionally with replaced text).
+
+    Retrieval must NEVER mutate the chunks stored in the FAISS docstore — they are
+    reused by every later query. Routes that trim or rewrite chunk text (the budget
+    filter, catalogue snippets) work on copies returned by this helper.
+    """
+    from langchain_core.documents import Document
+    return Document(
+        page_content=doc.page_content if new_text is None else new_text,
+        metadata=dict(doc.metadata),
+    )
+
+
+def _offer_page_url(store: dict, offer: str):
+    """URL of the page that best represents `offer`, or None.
+
+    Prefers the page whose URL slug contains the offer name (its dedicated page);
+    otherwise the page with the most name-matching chunks.
+    """
+    folded = lexicon._fold(offer).replace(" ", "")
+    counts = {}
+    slug_url = None
+    for d in store.values():
+        if lexicon.offer_in_text(offer, d.page_content):
+            url = d.metadata.get("source_url", "")
+            counts[url] = counts.get(url, 0) + 1
+            if slug_url is None and folded and \
+                    folded in lexicon._fold(url).replace(" ", "").replace("/", ""):
+                slug_url = url
+    if slug_url:
+        return slug_url
+    return max(counts, key=counts.get) if counts else None
+
+
+def _page_chunks_for_offer(vector_db, offer: str, limit: int = None):
+    """All chunks of the offer's OWN page, in page order (so every tier is present).
+
+    The completeness fix: a named offer is answered from its whole page, not only
+    the chunks that repeat its name — later chunks holding more forfait tiers (which
+    don't restate the name) are no longer dropped. Falls back to name-matching
+    chunks if the page can't be identified.
+    """
+    try:
+        store = vector_db.docstore._dict
+    except AttributeError:
+        return []
+    url = _offer_page_url(store, offer)
+    if url:
+        docs = [d for d in store.values() if d.metadata.get("source_url", "") == url]
+    else:
+        docs = [d for d in store.values() if lexicon.offer_in_text(offer, d.page_content)]
+    return docs[:limit] if limit is not None else docs
+
+
+def _snippet(doc, max_chars: int = 480):
+    """A compact COPY of a catalogue chunk (name + starting price fit in ~480 chars).
+
+    Catalogue answers are a brief one-line-per-gamme menu, so the context only needs
+    a short head of each offer's chunk — this keeps every gamme inside the context
+    window instead of the cap truncating the list to the first few.
+    """
+    return _copy_doc(doc, doc.page_content[:max_chars])
+
+
+def _catalogue_snippet(vector_db, offer: str):
+    """For the catalogue menu: a snippet that shows this gamme's STARTING price,
+    plus that price (for cheapest-first sorting).
+
+    Picks the cheapest PRICED chunk that names the offer, so the catalogue line
+    always carries an "à partir de X DA" (the old one-chunk-per-name pick often
+    landed on a chunk with no price, so the model silently dropped the gamme).
+    Falls back to any name chunk. Returns (snippet_doc | None, price | None).
+    """
+    try:
+        store = vector_db.docstore._dict
+    except AttributeError:
+        return None, None
+    named = [d for d in store.values() if lexicon.offer_in_text(offer, d.page_content)]
+    if not named:
+        return None, None
+    priced = [(_chunk_price(d.page_content), d) for d in named
+              if _chunk_price(d.page_content) is not None]
+    if priced:
+        price, doc = min(priced, key=lambda x: x[0])
+        return _snippet(doc), price
+    return _snippet(named[0]), None
+
+
 def _faiss(vector_db, query: str, k: int):
     """similarity_search with the RAW query (adapter adds the 'query:' prefix)."""
     return vector_db.similarity_search(query, k=k)
@@ -186,6 +275,15 @@ def _chunk_price(text: str):
     return min(prices) if prices else None
 
 
+def _doc_price(doc):
+    """A chunk's sort key: its cheapest tier price, or +inf if it carries none.
+
+    Used to order priced chunks/offers cheapest-first in Python (so the answer's
+    order never depends on the LLM honouring 'du moins cher au plus cher')."""
+    p = _chunk_price(doc.page_content)
+    return p if p is not None else float("inf")
+
+
 def _is_tier_price(lines: list, i: int):
     """If line `i` holds a tier (subscription) price, return it, else None.
 
@@ -206,14 +304,14 @@ def _is_tier_price(lines: list, i: int):
         return None
 
 
-def _filter_offer_text_by_budget(text: str, budget: int):
-    """Return (filtered_text, cheapest_kept_price) keeping only <=budget offers.
+def _split_offer_blocks(text: str):
+    """Split offer text into [price_or_None, [lines]] blocks at tier-price boundaries.
 
-    Splits the chunk into offer blocks at tier-price boundaries, keeps the leading
-    preamble plus every block whose tier price is <= budget, and drops blocks
-    priced above budget. Crédit/bonus DA amounts stay inside their block (they're
-    not boundaries), so an affordable offer keeps its full details. Returns
-    cheapest_kept_price = None when the chunk has no affordable tier at all.
+    Block 0 is the leading preamble/header (price None, possibly empty); each later
+    block starts at a tier (subscription) price line and runs until the next one, so
+    a tier's price stays glued to its own details. Defined ONCE here and shared by
+    the budget filter and the price-sorter, so "what counts as a tier boundary" can
+    never drift between the two.
     """
     lines = text.split("\n")
     blocks = []                 # list of [price_or_None, [lines]]
@@ -226,18 +324,50 @@ def _filter_offer_text_by_budget(text: str, budget: int):
         else:
             cur_lines.append(line)
     blocks.append([cur_price, cur_lines])
+    return blocks
 
-    kept_text, kept_prices = [], []
+
+def _sort_offer_text_by_price(text: str) -> str:
+    """Reorder an offer chunk's tier blocks cheapest-first, deterministically.
+
+    Keeps the leading preamble in place, then orders the priced tiers ascending
+    (Cam Puce's 7 paliers, Legend's tiers...). This is the system-level fix for the
+    "random tier order" bug: the context is ALREADY cheapest-first, so the answer's
+    order no longer depends on the LLM obeying 'liste du moins cher au plus cher'.
+    A chunk with 0–1 tiers is returned unchanged (nothing to reorder).
+    """
+    blocks = _split_offer_blocks(text)
+    if len(blocks) <= 2:                         # preamble + at most one tier
+        return text
+    preamble = "\n".join(blocks[0][1])           # block 0 = header (price None)
+    priced = sorted((( p, "\n".join(blk)) for p, blk in blocks[1:]),
+                    key=lambda x: x[0])
+    ordered = ([preamble] if preamble.strip() else []) + [t for _, t in priced]
+    return "\n".join(t for t in ordered if t.strip())
+
+
+def _filter_offer_text_by_budget(text: str, budget: int):
+    """Return (filtered_text, cheapest_kept_price) keeping only <=budget offers.
+
+    Splits the chunk into offer blocks at tier-price boundaries, keeps the leading
+    preamble plus every block whose tier price is <= budget, and drops blocks
+    priced above budget. Crédit/bonus DA amounts stay inside their block (they're
+    not boundaries), so an affordable offer keeps its full details. Returns
+    cheapest_kept_price = None when the chunk has no affordable tier at all.
+    """
+    blocks = _split_offer_blocks(text)
+    preamble, kept = [], []                         # kept: (price, block_text)
     for idx, (price, blk) in enumerate(blocks):
         if price is None:
             if idx == 0:                            # leading preamble / header
-                kept_text.append("\n".join(blk))
+                preamble.append("\n".join(blk))
         elif price <= budget:
-            kept_text.append("\n".join(blk))
-            kept_prices.append(price)
-    if not kept_prices:
+            kept.append((price, "\n".join(blk)))
+    if not kept:
         return "", None
-    return "\n".join(t for t in kept_text if t.strip()), min(kept_prices)
+    kept.sort(key=lambda x: x[0])                   # cheapest-first, like every route
+    ordered = preamble + [t for _, t in kept]
+    return "\n".join(t for t in ordered if t.strip()), kept[0][0]
 
 
 def _filter_by_budget_python(docs: list, budget: int) -> list:
@@ -257,45 +387,53 @@ def _filter_by_budget_python(docs: list, budget: int) -> list:
         filtered, cheapest = _filter_offer_text_by_budget(d.page_content, budget)
         if cheapest is None:
             continue
-        d.page_content = filtered           # keep only the affordable blocks
-        out.append((cheapest, d))
+        # emit a COPY with only the affordable blocks — never mutate the docstore
+        # chunk (it must stay intact for later queries)
+        out.append((cheapest, _copy_doc(d, filtered)))
     out.sort(key=lambda x: x[0])            # cheapest first
     return [doc for _, doc in out[: config.K_BUDGET_RETURN]]
 
 
-def _budget_route_active(query: str) -> bool:
-    """True iff smart_retrieve will actually take the BUDGET route for `query`.
+def classify_route(query: str) -> str:
+    """The single source of truth for the user's INTENT (the route).
 
-    Mirrors smart_retrieve's precedence (competitor > roaming > catalogue >
-    comparison > budget): budget is the live route only when it's a budget query
-    AND no higher-priority route claims it. This keeps bot.py's budget ceiling in
-    the prompt consistent with the context it was actually given — a roaming or
-    comparison query that happens to mention an amount must NOT get a budget note,
-    because its context was never Python-filtered to that amount.
+    smart_retrieve dispatches on this, and bot.py reads it to choose the answer
+    STYLE and the budget ceiling — so retrieval scope and presentation can never
+    drift apart (that disconnect was the cause of the "dumps everything" and
+    "random order" bugs). Precedence, highest first:
+
+        competitor > roaming > catalogue > comparison > budget > named > normal
+
+    Notes: catalogue yields to budget (an explicit amount means "filter", not "list
+    all"); a 2-offer comparison wins over budget. The NORMAL route may still resolve
+    to an out-of-domain refusal inside smart_retrieve, which needs retrieval
+    confidence a pure classifier can't see.
     """
-    if not _is_budget_query(query):
-        return False
     if _is_competitor_query(query):
-        return False
-    if _roaming_markers(query):              # roaming wins over budget (by design)
-        return False
+        return "competitor"
     offers = lexicon.detect_offers(query)
-    # catalogue YIELDS to budget (an explicit amount means "filter", not "list all"),
-    # so it does not block here; a 2-offer comparison still wins over budget.
+    if _roaming_markers(query):
+        return "roaming"
+    if _is_catalogue_query(query, offers) and not _is_budget_query(query):
+        return "catalogue"
     if _is_comparison_query(query, offers):
-        return False
-    return True
+        return "comparison"
+    if _is_budget_query(query):
+        return "budget"
+    if offers:
+        return "named"
+    return "normal"
 
 
 def budget_of(query: str):
     """Public: the budget amount in DA if `query` is BUDGET-routed, else None.
 
     Lets bot.py inject the exact budget value into the prompt so the LLM also
-    enforces the ceiling (belt-and-suspenders with the Python filter above). Only
-    returns a value when the budget route is the one smart_retrieve actually runs,
-    so the prompt's "context is pre-filtered" claim is always truthful.
+    enforces the ceiling (belt-and-suspenders with the Python filter). Non-None only
+    when classify_route says budget, so the prompt's "context is pre-filtered" claim
+    is always truthful (roaming/comparison queries that mention an amount get None).
     """
-    return _extract_budget(query) if _budget_route_active(query) else None
+    return _extract_budget(query) if classify_route(query) == "budget" else None
 
 
 # ===========================================================================
@@ -304,29 +442,27 @@ def budget_of(query: str):
 def smart_retrieve(query: str, lang: str, vector_db):
     """Route `query` to the right retrieval strategy and return chunks.
 
-    Returns the string sentinel config.COMPETITOR_SENTINEL ("COMPETITOR") if the
-    query mentions a competitor; otherwise a list of LangChain Documents (possibly
-    empty if nothing matched).
+    Dispatches on classify_route() — the single intent classifier shared with
+    bot.py — so retrieval scope and the answer style chosen later can never drift
+    apart. Returns config.COMPETITOR_SENTINEL for a competitor question, otherwise
+    a list of LangChain Documents (possibly empty when the OOD guard rejects a
+    normal query).
     """
-    # --- 1. COMPETITOR firewall (highest priority) -------------------------
-    # Only refuse when the query is really ABOUT a competitor — not when a brand
-    # appears as a call destination inside a Djezzy offer ("appels vers Mobilis").
-    if _is_competitor_query(query):
+    route = classify_route(query)
+
+    # --- COMPETITOR firewall ----------------------------------------------
+    if route == "competitor":
         logger.info("route=competitor")
         return config.COMPETITOR_SENTINEL
 
-    # --- pre-processing ----------------------------------------------------
     expanded = lexicon.expand_synonyms(query)   # richer retrieval string
     offers = lexicon.detect_offers(query)       # canonical names mentioned
-    budget = _extract_budget(query)
-    roaming = _roaming_markers(query)
 
-    # --- 2. ROAMING --------------------------------------------------------
-    # Roaming wins over budget: a price abroad must never be filtered as national.
-    if roaming:
+    # --- ROAMING (wins over budget: a foreign price is never filtered national) --
+    if route == "roaming":
+        roaming = _roaming_markers(query)
         logger.info("route=roaming markers=%s", roaming)
         docs = _faiss(vector_db, expanded, config.K_ROAMING * 2)
-        # prefer chunks whose URL or text actually carries a roaming marker
         preferred, other = [], []
         for d in docs:
             blob = (d.metadata.get("source_url", "") + " " + d.page_content).lower()
@@ -334,60 +470,77 @@ def smart_retrieve(query: str, lang: str, vector_db):
                 preferred.append(d)
             else:
                 other.append(d)
-        ranked = _dedup(preferred + other)[: config.K_ROAMING]
-        return ranked
+        return _dedup(preferred + other)[: config.K_ROAMING]
 
-    # --- 3. CATALOGUE ------------------------------------------------------
-    # "show me your offers" with no specific offer named: one chunk per known
-    # offer so every gamme is represented. A catalogue phrasing that ALSO states a
-    # budget ("j'ai 500 DA, que proposez-vous ?") yields to the BUDGET route below
-    # so the context is actually price-filtered (never list the full catalogue and
-    # then claim it was filtered).
-    if _is_catalogue_query(query, offers) and not _is_budget_query(query):
+    # --- CATALOGUE: one PRICED snippet per gamme, sorted cheapest-first ----------
+    # Every distinct gamme gets a snippet that carries its starting price, and the
+    # whole list is ordered in Python (the model won't sort reliably). This fixes
+    # both the missing-gamme and random-order problems at the source.
+    if route == "catalogue":
         logger.info("route=catalogue")
-        docs = []
+        entries, seen, seen_urls = [], set(), set()
         for name in lexicon.OFFER_NAMES:
-            docs.extend(_exact_match_chunks(vector_db, name, config.K_CATALOGUE_PER_OFFER))
-        docs = _dedup(docs)
-        if not docs:  # nothing indexed under those names → fall back to dense
-            docs = _faiss(vector_db, expanded, config.K_NORMAL)
-        return docs
+            canonical = "campuce" if name in ("cam puce", "campuce") else name
+            if canonical in seen:
+                continue
+            doc, price = _catalogue_snippet(vector_db, name)
+            if doc is None:
+                continue
+            url = doc.metadata.get("source_url", "")
+            if url and url in seen_urls:        # overlap (e.g. "legend" hit a Legend
+                continue                        # Max page already listed) → skip
+            seen.add(canonical)
+            seen_urls.add(url)
+            entries.append((price if price is not None else float("inf"), doc))
+        if not entries:  # nothing indexed under those names → fall back to dense
+            return _faiss(vector_db, expanded, config.K_NORMAL)
+        entries.sort(key=lambda x: x[0])        # cheapest gamme first, priceless last
+        return [d for _, d in entries]
 
-    # --- 4. COMPARISON -----------------------------------------------------
-    # ">= 2 offers + a comparison cue": guarantee both offers are present.
-    if _is_comparison_query(query, offers):
+    # --- COMPARISON: each named offer's page (capped), both guaranteed -----------
+    # Offers presented cheapest-first, and each offer's own tiers sorted too — same
+    # deterministic Python ordering as catalogue/budget, never left to the LLM.
+    if route == "comparison":
         logger.info("route=comparison offers=%s", offers)
-        docs = []
+        groups = []                              # (cheapest_price, [chunks]) per offer
         for name in offers:
-            chunks = _exact_match_chunks(vector_db, name, config.K_COMPARISON_PER_OFFER)
-            if not chunks:  # ensure presence even if lexical match is thin
+            chunks = _page_chunks_for_offer(vector_db, name, config.K_COMPARISON_PER_OFFER)
+            if not chunks:  # ensure presence even if the page can't be identified
                 chunks = _faiss(vector_db, name, config.K_COMPARISON_PER_OFFER)
-            docs.extend(chunks)
-        return _dedup(docs)
+            chunks = [_copy_doc(d, _sort_offer_text_by_price(d.page_content)) for d in chunks]
+            groups.append((min((_doc_price(d) for d in chunks), default=float("inf")),
+                           chunks))
+        groups.sort(key=lambda g: g[0])          # cheapest offer first
+        return _dedup([d for _, chunks in groups for d in chunks])
 
-    # --- 5. BUDGET ---------------------------------------------------------
-    if _is_budget_query(query):
+    # --- BUDGET: pool + Python price filter (cheapest first, LLM never filters) --
+    if route == "budget":
+        budget = _extract_budget(query)
         logger.info("route=budget budget=%s DA", budget)
         pool = _faiss(vector_db, expanded, config.K_BUDGET_POOL)
         # also pull every offer's chunks so cheap offers aren't missed by dense rank
         for name in lexicon.OFFER_NAMES:
             pool.extend(_exact_match_chunks(vector_db, name, 2))
-        pool = _dedup(pool)
-        return _filter_by_budget_python(pool, budget)
+        return _filter_by_budget_python(_dedup(pool), budget)
 
-    # --- 6. NAMED OFFER ----------------------------------------------------
-    if offers:
+    # --- NAMED OFFER: the offer's WHOLE page (all tiers) + a couple dense --------
+    if route == "named":
         logger.info("route=named_offer offers=%s", offers)
-        docs = []
         primary = offers[0]
-        docs.extend(_exact_match_chunks(vector_db, primary, config.K_NAMED_EXACT))
-        docs.extend(_faiss(vector_db, expanded, config.K_NAMED_FAISS))
+        page = _page_chunks_for_offer(vector_db, primary)        # whole page, all tiers
+        if page:
+            # Deterministic cheapest-first ordering in Python: tiers WITHIN each chunk
+            # and chunks AMONG themselves. This is the Cam Puce fix (7 paliers were
+            # returned in arbitrary page order) — generalised to every named offer.
+            page = [_copy_doc(d, _sort_offer_text_by_price(d.page_content)) for d in page]
+            page.sort(key=_doc_price)                            # cheapest chunk first
+            docs = page
+        else:  # offer not located by page → fall back to name-match chunks
+            docs = _exact_match_chunks(vector_db, primary, config.K_NAMED_EXACT)
+        docs = docs + _faiss(vector_db, expanded, config.K_NAMED_FAISS)
         return _dedup(docs)
 
-    # --- 7. NORMAL ---------------------------------------------------------
-    # Fallback dense search, guarded against out-of-domain questions. Try a
-    # scored search so the OOD backstop can see retrieval confidence; fall back
-    # to plain search for stores that don't expose scores.
+    # --- NORMAL: dense search, guarded against out-of-domain questions -----------
     try:
         scored = vector_db.similarity_search_with_score(expanded, k=config.K_NORMAL)
         docs = [d for d, _ in scored]
@@ -403,17 +556,23 @@ def smart_retrieve(query: str, lang: str, vector_db):
 
 
 def _is_out_of_domain(query: str, scored_docs) -> bool:
-    """True if `query` is off-topic and the bot should give the no-context refusal.
+    """True if `query` is off-topic → the bot gives the no-context refusal.
 
-    Primary gate (deterministic): the query carries no telecom/price/offer signal
-    at all (e.g. "quelle est la météo") — those are out of domain regardless of
-    what FAISS returned. Secondary backstop: even a signal-bearing query whose
-    best chunk scores below OOD_MIN_SIMILARITY is treated as off-topic (only used
-    when scores are available). Note we intentionally keep signal-bearing
-    follow-ups like "c'est combien ?" in domain (price words are signals).
+    CONFIDENCE-based, not a keyword list:
+      * A clear telecom/offer signal is a fast-pass → in-domain, answered whatever
+        the score. (The keyword list now only ever HELPS; it can never wrongly
+        refuse, which is what made phones-in-Arabic fail before.)
+      * Without a signal we DON'T refuse on the missing keyword. We judge by
+        RETRIEVAL CONFIDENCE: off-topic only when the best chunk scores below
+        OOD_MIN_SIMILARITY. Self-adapting (no vocabulary to maintain) and still
+        decided before the LLM runs, so off-domain stays a fast refusal.
+
+    Scores come from similarity_search_with_score on a MAX_INNER_PRODUCT index, so
+    HIGHER = more similar and scored_docs[0] is the best match. OOD_MIN_SIMILARITY
+    MUST be calibrated on the real index (e5 scores cluster high) — see config.py.
     """
-    if not lexicon.has_telecom_signal(query):
-        return True
-    if scored_docs and scored_docs[0][1] < config.OOD_MIN_SIMILARITY:
-        return True
-    return False
+    if lexicon.has_telecom_signal(query):
+        return False                          # clear in-domain signal → answer
+    if not scored_docs:
+        return False                          # no score to judge on → let it through
+    return scored_docs[0][1] < config.OOD_MIN_SIMILARITY

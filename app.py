@@ -2,21 +2,20 @@
 app.py — Gradio front-end (text + voice) and application wiring.
 
 Boots the bot: loads the FAISS index (building it from the cached scrape if
-needed), starts the daily-refresh scheduler, and serves a two-tab Gradio UI in
-Djezzy red/white.
+needed), starts the daily-refresh scheduler, and serves a SINGLE-SCREEN Gradio UI
+in Djezzy red/white where text and voice share one conversation:
 
-    Tab 1 — Text chat : chatbot + send + clear + refresh
-    Tab 2 — Voice     : mic -> transcribe (shown) -> answer -> autoplayed speech
+    one chat window (shared history) + a text box + a microphone + spoken reply,
+    plus clear / refresh and a status bar.
 
-A status bar shows the last refresh time and the indexed document count. Language
-is auto-detected from the input (no manual selector needed). Launches with
-share=True for Colab.
+Typing answers in text; speaking transcribes the question into the same chat and
+also plays the answer aloud. Language is auto-detected from the input (no manual
+selector). Launches with share=True for Colab.
 
 Run:  python app.py
 """
 
 import logging
-from datetime import datetime, timezone
 
 import config
 import scraper
@@ -89,30 +88,36 @@ def _history_to_messages(chat_history):
     return msgs
 
 
-def on_text_send(message, chat_history):
-    """Tab 1: answer a typed message and append to the chat."""
+def on_text_send(message, chat_history, speak):
+    """Answer a typed message and append it to the shared conversation.
+
+    Text questions stay text-only by default; if `speak` (the 'read aloud' toggle)
+    is on, the reply is also synthesized so a typed question can be heard too.
+    Returns (chat, cleared-textbox, spoken-reply-wav-or-None).
+    """
     chat_history = chat_history or []
     if not message or not message.strip():
-        return chat_history, ""
+        return chat_history, "", None
     if STATE["index"] is None:
         chat_history += [
             {"role": "user", "content": message},
             {"role": "assistant", "content": "⚠️ La base n'est pas encore indexée. "
                                              "Cliquez sur « Rafraîchir »."},
         ]
-        return chat_history, ""
+        return chat_history, "", None
     prior = _history_to_messages(chat_history)
     result = bot.answer(message, STATE["index"], prior)
     chat_history += [
         {"role": "user", "content": message},
         {"role": "assistant", "content": result["text"]},
     ]
-    return chat_history, ""
+    wav = voice.synthesize(result["text"], result["lang"]) if speak else None
+    return chat_history, "", wav
 
 
 def on_clear():
-    """Tab 1: clear the conversation."""
-    return [], ""
+    """Clear the conversation (and any pending spoken reply)."""
+    return [], "", None
 
 
 def on_refresh():
@@ -126,20 +131,27 @@ def on_refresh():
 
 
 def on_voice(audio_path, chat_history):
-    """Tab 2: transcribe -> answer -> speak. Returns transcription, chat, audio."""
+    """Transcribe speech → answer → speak, into the SAME shared conversation.
+
+    The transcription becomes the user's message (prefixed 🎙️) and the reply is
+    both shown in the chat and played back as audio, so voice and text share one
+    history. Returns (updated chat, spoken-reply wav path).
+    """
     chat_history = chat_history or []
     if audio_path is None:
-        return "", chat_history, None
+        return chat_history, None
     if STATE["index"] is None:
-        return "⚠️ Base non indexée.", chat_history, None
+        chat_history += [{"role": "assistant",
+                          "content": "⚠️ La base n'est pas encore indexée. "
+                                     "Cliquez sur « Rafraîchir »."}]
+        return chat_history, None
     prior = _history_to_messages(chat_history)
     result = voice.voice_answer(audio_path, STATE["index"], prior)
-    transcription = f"🗣️ {result['transcription']}  ({result['lang']})"
     chat_history += [
-        {"role": "user", "content": result["transcription"]},
+        {"role": "user", "content": f"🎙️ {result['transcription']}"},
         {"role": "assistant", "content": result["text"]},
     ]
-    return transcription, chat_history, result["wav_path"]
+    return chat_history, result["wav_path"]
 
 
 # ---------------------------------------------------------------------------
@@ -163,37 +175,37 @@ def build_ui():
 
     with gr.Blocks(theme=theme, css=_CSS, title="DjezzyBot") as demo:
         gr.Markdown("# 📱 DjezzyBot", elem_id="title")
-        gr.Markdown("Assistant virtuel multilingue de Djezzy — texte & voix "
-                    "(Arabe · Français · English · Darija).")
+        gr.Markdown("Assistant virtuel multilingue de Djezzy — écrivez **ou** parlez, "
+                    "dans une seule conversation (Arabe · Français · English · Darija).")
         status = gr.Markdown(_status_text(), elem_classes=["djezzy-status"])
 
-        with gr.Tabs():
-            # ---- Tab 1: text ------------------------------------------------
-            with gr.Tab("💬 Chat texte"):
-                chatbot = gr.Chatbot(type="messages", height=460, label="Conversation")
-                with gr.Row():
-                    txt = gr.Textbox(placeholder="Posez votre question à Djezzy…",
-                                     scale=8, show_label=False, autofocus=True)
-                    send_btn = gr.Button("Envoyer", variant="primary", scale=1)
-                with gr.Row():
-                    clear_btn = gr.Button("🗑️ Effacer")
-                    refresh_btn = gr.Button("🔄 Rafraîchir la base")
+        # One shared conversation for BOTH text and voice → a single history.
+        chatbot = gr.Chatbot(type="messages", height=440, label="Conversation")
 
-            # ---- Tab 2: voice -----------------------------------------------
-            with gr.Tab("🎙️ Voix"):
-                mic = gr.Audio(sources=["microphone"], type="filepath",
-                               label="Parlez à DjezzyBot")
-                transcription = gr.Markdown("", label="Transcription")
-                voice_out = gr.Audio(label="Réponse vocale", autoplay=True)
-                voice_chat = gr.Chatbot(type="messages", height=340, label="Conversation")
+        with gr.Row():
+            txt = gr.Textbox(
+                placeholder="Écrivez votre question…  (ou parlez avec le micro ci-dessous)",
+                scale=8, show_label=False, autofocus=True)
+            send_btn = gr.Button("Envoyer", variant="primary", scale=1)
 
-        # ---- wiring -------------------------------------------------------
-        send_btn.click(on_text_send, [txt, chatbot], [chatbot, txt])
-        txt.submit(on_text_send, [txt, chatbot], [chatbot, txt])
-        clear_btn.click(on_clear, None, [chatbot, txt])
+        with gr.Row():
+            mic = gr.Audio(sources=["microphone"], type="filepath",
+                           label="🎙️ Parler à DjezzyBot", scale=2)
+            voice_out = gr.Audio(label="🔊 Réponse vocale", autoplay=True, scale=1)
+
+        with gr.Row():
+            clear_btn = gr.Button("🗑️ Effacer")
+            refresh_btn = gr.Button("🔄 Rafraîchir la base")
+            speak_chk = gr.Checkbox(label="🔊 Lire les réponses à voix haute",
+                                    value=False)
+
+        # ---- wiring : text AND voice feed the SAME chatbot ----------------
+        # Voice always speaks back; typed answers speak only when the toggle is on.
+        send_btn.click(on_text_send, [txt, chatbot, speak_chk], [chatbot, txt, voice_out])
+        txt.submit(on_text_send, [txt, chatbot, speak_chk], [chatbot, txt, voice_out])
+        mic.stop_recording(on_voice, [mic, chatbot], [chatbot, voice_out])
+        clear_btn.click(on_clear, None, [chatbot, txt, voice_out])
         refresh_btn.click(on_refresh, None, status)
-        mic.stop_recording(on_voice, [mic, voice_chat],
-                           [transcription, voice_chat, voice_out])
 
     return demo
 

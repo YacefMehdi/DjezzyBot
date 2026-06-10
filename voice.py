@@ -71,25 +71,33 @@ _STT_PRIMER = (
 )
 
 
+_STT_OPTS = dict(task="transcribe", initial_prompt=_STT_PRIMER,
+                 temperature=0.0, beam_size=3, condition_on_previous_text=False)
+
+
 def transcribe(audio_path: str):
     """Transcribe audio and return (text, lang) with lang in fr/ar/en/dz.
 
-    Whisper auto-detects among STT_ALLOWED_LANGS; we then upgrade Arabic-script or
-    Darija-marker transcriptions to "dz" so the bot replies in MSA per the rules.
+    Language policy (mechanism: one allowed-language set, enforced at the source):
+    Whisper auto-detects first, but if it guesses a language we DON'T support (e.g.
+    German for a French question), we re-transcribe while FORCING the most probable
+    supported language. That fixes the actual transcription text, not just its label
+    — a wrong-language guess used to produce meaningless text the bot couldn't
+    answer. Darija is heard as Arabic, then upgraded to "dz" by the text detector.
     """
     model = load_stt()
-    # faster-whisper returns a segments generator + an info object holding the
-    # auto-detected language. info is available immediately; segments stream.
-    segments, info = model.transcribe(
-        audio_path,
-        task="transcribe",
-        initial_prompt=_STT_PRIMER,
-        temperature=0.0,
-        beam_size=3,
-        condition_on_previous_text=False,
-    )
+    allowed = set(config.STT_ALLOWED_LANGS)
+
+    segments, info = model.transcribe(audio_path, **_STT_OPTS)
+    if info.language not in allowed:
+        # pick the best language AMONG the ones we support, then transcribe as that
+        probs = dict(getattr(info, "all_language_probs", None) or [])
+        forced = max(allowed, key=lambda l: probs.get(l, 0.0)) if probs else "fr"
+        logger.info("STT detected unsupported '%s' → forcing '%s'", info.language, forced)
+        segments, info = model.transcribe(audio_path, language=forced, **_STT_OPTS)
+
     text = "".join(seg.text for seg in segments).strip()
-    wlang = info.language if info.language in config.STT_ALLOWED_LANGS else "fr"
+    wlang = info.language if info.language in allowed else "fr"
     # reuse the text-side detector so STT and text paths agree on dz vs ar/fr
     lang = detect_language(text) if text else wlang
     # if Whisper heard Arabic but our detector didn't catch Darija, keep ar
@@ -117,37 +125,70 @@ _TTS_NUM_LANG = {"fr": "fr", "en": "en", "ar": "ar", "dz": "ar"}
 
 
 def _expand_for_tts(text: str, lang: str) -> str:
-    """Expand telecom abbreviations and numbers to spoken words.
+    """Turn written telecom text into naturally SPEAKABLE text (one layer, by class).
 
-    - collapse French thousands separators: "3 000" -> "3000"
-    - Go/Mo/SMS/DA -> spoken words (language-appropriate)
-    - digits -> words via num2words
+    A voice assistant must never spell things out wrong, so we normalize whole
+    CATEGORIES rather than single cases:
+    - thousands separators: "3 000" -> "3000" (so it's read "trois mille")
+    - units: Go / Mo / SMS / DA -> spoken words (language-appropriate)
+    - USSD / short codes: "*123#" -> symbols + digits spoken one by one
+    - special phone-style numbers (leading zero, e.g. "0770") -> digit by digit
+    - any remaining integer -> words via num2words
     """
     from num2words import num2words
 
-    # collapse "1 000" / "3 000" style separators BEFORE word conversion
+    nlang = _TTS_NUM_LANG.get(lang, "fr")
+
+    # 1) collapse "1 000" / "3 000" style separators BEFORE word conversion
     text = re.sub(r"(?<=\d)\s+(?=\d{3}\b)", "", text)
 
+    # 2) telecom units -> spoken words (+ symbol names for the USSD pass)
     if lang in ("ar", "dz"):
         repl = {"Go": "جيجابايت", "Mo": "ميجابايت", "SMS": "رسائل",
                 "DA": "دينار", "DZD": "دينار"}
+        star, hashm = "نجمة", "مربع"
     elif lang == "en":
         repl = {"Go": "gigabytes", "Mo": "megabytes", "SMS": "SMS",
                 "DA": "dinars", "DZD": "dinars"}
+        star, hashm = "star", "hash"
     else:  # fr
         repl = {"Go": "giga-octets", "Mo": "méga-octets", "SMS": "SMS",
                 "DA": "dinars", "DZD": "dinars"}
+        star, hashm = "étoile", "dièse"
     for k, v in repl.items():
         text = re.sub(rf"\b{k}\b", v, text)
 
-    nlang = _TTS_NUM_LANG.get(lang, "fr")
+    def _digit(ch):
+        try:
+            return num2words(int(ch), lang=nlang)
+        except Exception:
+            return ch
 
+    def _say_digits(digits):
+        return " ".join(_digit(ch) for ch in digits)
+
+    # 3) USSD / short codes ("*123#", "#100*1#") -> symbols + digits, one by one
+    def _ussd(m):
+        out = []
+        for ch in m.group(0):
+            if ch == "*":
+                out.append(star)
+            elif ch == "#":
+                out.append(hashm)
+            elif ch.isdigit():
+                out.append(_digit(ch))
+        return " ".join(out)
+    text = re.sub(r"[*#][\d*#]*\d[\d*#]*#?|\b\d+#", _ussd, text)
+
+    # 4) special phone-style numbers (leading zero, e.g. 0770) -> digit by digit
+    text = re.sub(r"\b0\d{2,}\b", lambda m: _say_digits(m.group(0)), text)
+
+    # 5) remaining plain integers -> words
     def _num(m):
         try:
             return num2words(int(m.group(0)), lang=nlang)
         except Exception:
             return m.group(0)
-
     return re.sub(r"\d+", _num, text)
 
 

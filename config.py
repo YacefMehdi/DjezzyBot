@@ -45,7 +45,9 @@ EMBED_NORMALIZE = True            # FAISS IndexFlatIP == cosine when normalized
 MAX_NEW_TOKENS = 768
 DO_SAMPLE = False                 # greedy / deterministic
 REPETITION_PENALTY = 1.1
-MAX_CONTEXT_CHARS = 6000          # cap on the retrieved context fed to the LLM
+MAX_CONTEXT_CHARS = 8000          # cap on the retrieved context fed to the LLM
+                                  # (fits a full named-offer page, or every gamme's
+                                  #  snippet in a catalogue listing)
 
 # ---------------------------------------------------------------------------
 # Conversation history
@@ -67,7 +69,13 @@ SITEMAP_PATHS = ["/sitemap.xml", "/sitemap_index.xml"]
 
 # Layer (b): recursive BFS crawl with Playwright.
 CRAWL_MAX_DEPTH = 4
-CRAWL_MAX_PAGES = 200            # hard cap after dedup
+# The crawl's REAL stop is frontier-exhaustion: it ends when there are no new
+# internal links left to follow, which self-sizes to the site (add/remove pages and
+# it adjusts with zero edits). The two limits below are safety FUSES, not targets —
+# they exist only to escape a pathological infinite crawl and should never bind in
+# normal operation, so you don't re-tune them as offers come and go.
+CRAWL_MAX_PAGES = 1500           # fuse: absolute ceiling on pages rendered
+CRAWL_MAX_MINUTES = 45           # fuse: wall-clock budget for the whole crawl
 CRAWL_DELAY = (1.0, 2.0)         # polite random sleep (seconds) between requests
 CRAWL_RETRIES = 3                # retry a failed page load this many times
 CRAWL_RETRY_DELAY = 2.0          # seconds between retries
@@ -76,7 +84,7 @@ PAGE_TIMEOUT_MS = 30000          # Playwright per-page navigation timeout
 # events (which never fire on some Djezzy offer pages like iZZY).
 RENDER_MIN_TEXT = 400            # body innerText length that signals "content present"
 RENDER_SETTLE_MS = 10000         # max wait for that content to appear
-RENDER_EXTRA_SETTLE_MS = 1500    # extra pause so lazy <img> tags attach (for OCR)
+RENDER_EXTRA_SETTLE_MS = 1500    # extra settle pause so late-rendering content finishes
 
 # Layer (c): path-hint expansion. Deep offer pages aren't cleanly linked from
 # listing pages, so we also probe these known patterns on each domain.
@@ -112,18 +120,6 @@ STRIP_CLASS_HINTS = [
 MIN_PAGE_CHARS = 300             # drop pages shorter than this after cleaning
 
 # ---------------------------------------------------------------------------
-# Image OCR
-# ---------------------------------------------------------------------------
-OCR_LANGS = "ara+fra+eng"        # Tesseract language packs
-OCR_MIN_IMG_PX = 200             # skip images smaller than this (decorative)
-# Skip images whose src contains any of these (logos, icons, sprites...).
-OCR_SKIP_SRC = ["logo", "icon", "sprite", "avatar", "flag", "social"]
-# Keep OCR text only if it contains one of these signals: any digit, or one of
-# these tokens, or a known offer name (offer names come from data/lexicon.py).
-OCR_SIGNAL_TOKENS = ["da", "go", "mo"]
-OCR_TAG = "[IMAGE]:"             # OCR text is appended to page content under this tag
-
-# ---------------------------------------------------------------------------
 # Chunking  (RecursiveCharacterTextSplitter; never cross page boundaries)
 # ---------------------------------------------------------------------------
 CHUNK_SIZE = 1200
@@ -141,10 +137,18 @@ K_NAMED_EXACT = 3                # exact-match chunks for a named offer
 K_NAMED_FAISS = 2                # FAISS chunks added for a named offer
 K_NORMAL = 5
 COMPETITOR_SENTINEL = "COMPETITOR"
-# Out-of-domain guard. Primary gate is the telecom-signal check on the query; this
-# is a secondary backstop — a signal-bearing query whose best chunk scores below
-# this cosine similarity is also treated as off-topic. Tune on Colab if needed.
-OOD_MIN_SIMILARITY = 0.50
+# Out-of-domain floor — a near-zero tripwire only. The LLM is the SOLE off-domain judge.
+# CALIBRATED twice on the real index (2026-06-10, ~95 queries, all 4 languages). The wide
+# run proved a score threshold CANNOT judge relevance with this embedding model: e5 hands
+# out high cosine scores to EVERYTHING. The three groups overlap completely in 0.77–0.85 —
+#   real signal-less customers : 0.774–0.846   (lowest = Darija "شحال تدير فالشهر")
+#   off-topic noise (jokes...)  : 0.748–0.833
+#   pure GIBBERISH (keyboard mash): 0.798–0.838  ← scores HIGHER than real questions!
+# So relevance is decided by MEANING (bot.SYSTEM_PROMPT rule 1, the LLM), never by score.
+# This floor is set far below everything observed so it NEVER fires on real traffic; it only
+# trips if retrieval is so broken the best match scores < 0.70 (e.g. an embedding failure).
+# Any value in [0, ~0.74] is behaviourally identical here — 0.70 just keeps a tiny tripwire.
+OOD_MIN_SIMILARITY = 0.70
 
 # ---------------------------------------------------------------------------
 # Voice

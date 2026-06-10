@@ -1,21 +1,25 @@
 # DjezzyBot — Documentation & Performance Report
 
 > **Status of the numbers in this report.** The architecture, data flow, and known
-> limitations below are final. The **measured tables** (response quality, latency,
-> coverage) are populated from a real run on Colab T4 — run `test_scenarios.py`
-> (which prints the per-scenario result + by-language/by-route summary) and read
-> `latency_store.json` (written by the latency wrapper), then paste the figures
-> into the cells marked _“(from run)”_. They are intentionally left unfilled here
-> rather than estimated, because this is a measured-data deliverable.
+> limitations below are final. **Coverage (§4) is filled with real figures** measured
+> from `data/djezzy_pages.json`. **Response quality (§2) and latency (§3) are left as
+> `(from run)`** on purpose: they must come from a Colab T4 run of the *current* code
+> (the off-domain guard and tier-ordering changed on 2026-06-10), and the on-disk
+> `latency_store.json` holds only a stub record from a local mock — not real timings.
+> To populate them, run `python test_scenarios.py` on Colab (it prints the per-scenario
+> result + by-language/by-route summary and writes real `latency_store.json` records),
+> then paste the figures into the marked cells. Nothing here is estimated — stale or
+> guessed numbers are deliberately avoided in a measured-data deliverable.
 
 ---
 
 ## 1. Architecture overview
 
 DjezzyBot is a retrieval-augmented chatbot: it answers strictly from text scraped
-from Djezzy's own websites (including text extracted from images by OCR), never
-from the language model's own knowledge. It serves both text and voice, in Arabic,
-French, English, and Algerian Darija.
+from Djezzy's own websites, never from the language model's own knowledge. (Djezzy
+describes every offer in the page HTML, so plain text extraction is enough — no
+image OCR is used.) It serves both text and voice, in Arabic, French, English, and
+Algerian Darija.
 
 ### Modules
 
@@ -23,13 +27,13 @@ French, English, and Algerian Darija.
 |---|---|
 | `config.py` | Single source of truth: model IDs, domains, every path and tunable. |
 | `data/lexicon.py` | Offer names, synonyms, competitor/roaming/budget/comparison trigger words (FR/AR/Darija), Darija markers; `expand_synonyms`, `detect_offers`. |
-| `scraper.py` | URL discovery (sitemap + Playwright BFS crawl + path hints), HTML cleaning, image OCR (Tesseract `ara+fra+eng`). Writes `data/djezzy_pages.json`. |
+| `scraper.py` | URL discovery (sitemap + Playwright BFS crawl + path hints) and HTML cleaning. Writes `data/djezzy_pages.json`. |
 | `indexer.py` | Per-page chunking (1200/120), e5 embedding with `passage:`/`query:` prefixes + normalization, FAISS `IndexFlatIP`. |
-| `retriever.py` | `smart_retrieve()` — the 7-route intent router in front of FAISS. |
-| `bot.py` | Qwen2.5-7B (4-bit NF4) loading, 10-rule system prompt, language detection, manual history window, greedy generation, latency wrapper. |
+| `retriever.py` | `smart_retrieve()` — the 7-route intent router in front of FAISS; presents priced offers in deterministic cheapest-first order (catalogue/budget/named/comparison), never relying on the LLM to sort. |
+| `bot.py` | Qwen2.5-7B (4-bit NF4) loading, 11-rule system prompt (rule 1 = Djezzy-domain scope), language detection, manual history window, greedy generation, latency wrapper. |
 | `voice.py` | Whisper-medium STT, Coqui XTTS-v2 TTS (on-demand), voice round-trip with per-stage latency. |
 | `scheduler.py` | Daily 03:00 refresh (daemon thread) + `force_refresh()` for the UI button. |
-| `app.py` | Gradio UI: text tab + voice tab, status bar, hot-swap on refresh. |
+| `app.py` | Gradio UI: single shared screen where text and voice feed one conversation, status bar, hot-swap on refresh. |
 | `test_scenarios.py` | 14 acceptance scenarios; accumulates the latency this report uses. |
 
 ### Data flow (user input → response)
@@ -64,13 +68,18 @@ French, English, and Algerian Darija.
 3. **CATALOGUE** — "your offers" with no specific offer → one exact-match chunk per known offer.
 4. **COMPARISON** — comparison cue + ≥2 named offers → 4 chunks per offer, both guaranteed present.
 5. **BUDGET** — amount + intent cue → pull a price pool, **filter prices in Python** (≤ budget), return ≤5. The LLM never filters.
-6. **NAMED OFFER** — a single offer named → 3 exact-match + 2 dense chunks.
-7. **NORMAL** — fallback dense search, k=5, with an out-of-domain guard: a query
-   carrying no telecom/price/offer signal (or with no retrieval support) returns
-   empty so the bot gives the no-context refusal instead of guessing.
+6. **NAMED OFFER** — a single offer named → its whole page, all tiers, ordered
+   cheapest-first in Python (the Cam Puce fix) + 2 dense chunks.
+7. **NORMAL** — fallback dense search, k=5. Off-domain handling is two-layered: a
+   low score floor (`OOD_MIN_SIMILARITY = 0.70`) only trips on degenerate input
+   (gibberish, broken retrieval); topical off-domain questions (weather, jokes) are
+   refused by the LLM's domain-scope rule (system-prompt rule 1), which judges by
+   meaning. Calibration showed the embedding score can't separate off-domain from
+   real questions (the bands overlap), so relevance is decided by the LLM, not a
+   threshold — and a real customer is never refused on a borderline score.
 
-(COMPETITOR and the out-of-domain/empty cases short-circuit to a canned refusal;
-the other five routes feed retrieved context to the LLM.)
+(COMPETITOR and the empty/degenerate cases short-circuit to a canned refusal; the
+other five routes feed retrieved context to the LLM, which also enforces rule 1.)
 
 ---
 
@@ -86,17 +95,17 @@ Source: `python test_scenarios.py` (its printed summary).
 |---|---|---|---|---|
 | 01 | "vos offres ?" lists ≥4 offers with prices | fr | catalogue | |
 | 02 | "j'ai 500 DA" shows only offers ≤500 DA | fr | budget | |
-| 03 | "parle-moi de Campuce" — Campuce only, no mixing | fr | named-offer | |
+| 03 | "parle-moi de Campuce" — Campuce only, tiers cheapest-first | fr | named-offer | |
 | 04 | "différence Legend / iZZY" — both with prices | fr | named-offer | |
 | 05 | roaming France returns roaming, not national | fr | roaming | |
 | 06 | English query → English reply | en | language | |
 | 07 | Arabic query → Arabic reply | ar | language | |
 | 08 | Darija query → detected, MSA Arabic reply | dz | language | |
 | 09 | "offre Ooredoo ?" → polite Djezzy-only refusal | fr | competitor | |
-| 10 | "la météo ?" → out-of-domain refusal | fr | out-of-domain | |
+| 10 | "la météo ?" → declined (LLM domain-scope rule), no weather | fr | out-of-domain | |
 | 11 | Legend then "c'est combien ?" → still Legend | fr | context | |
 | 12 | 6 turns, 7th still answers correctly | fr | context | |
-| 13 | image-only offer returns its price (OCR) | fr | named-offer | |
+| 13 | named offer returns its HTML price | fr | named-offer | |
 | 14 | deep URL discovered automatically (crawler) | fr | coverage | |
 
 ### By language _(from run)_
@@ -158,14 +167,15 @@ over the test run.
 Source: the crawl run — `scraper.run_scrape()` logs and `data/djezzy_pages.json`;
 chunk count from `store.index.ntotal`.
 
-| Metric | Value _(from run)_ |
+| Metric | Value |
 |---|---|
 | Domains crawled | www.djezzy.dz, www.djezzy5g.dz |
-| URLs discovered (sitemap + BFS + hints) | |
-| Pages kept (≥300 chars after cleaning) | |
-| Pages that required OCR (`has_ocr=True`) | |
-| Total chunks indexed | |
-| Offer categories represented | _(e.g. Legend, iZZY, Campuce, Zid, Confort, roaming, 5G — list what the crawl actually found)_ |
+| Pages kept (≥300 chars after cleaning) | **427** (all unique URLs) |
+| — of which Arabic (`/ar/`) pages | **190** |
+| — of which carrying a DA price | **117** |
+| Total chunks indexed | ≈ **769** (estimate from page text; exact = `store.index.ntotal` after build) |
+| Crawl stop reason | 45-min safety fuse (more URLs still queued — the site has many `/ar/` duplicates) |
+| Offer categories represented | Legend ×10, Legend Pro ×3, Legend Max ×4, Cam Puce ×7, iZZY ×1, Zid ×5, Confort ×13, 3ayla ×2, Hayla ×1, Flexy ×25, 5G ×36, Roaming ×38 (pages mentioning each) |
 
 ---
 
@@ -173,11 +183,10 @@ chunk count from `store.index.ntotal`.
 
 An honest list of where the system is weak:
 
-- **OCR on stylized promo fonts.** Tesseract handles plain text well but struggles
-  with decorative/condensed marketing fonts. The digit/`DA`/`Go`/`Mo`/offer-name
-  signal filter removes banner noise but can occasionally drop a real price or
-  read a digit wrong (e.g. 0↔O, 1↔l). Offers rendered as heavily stylized graphics
-  are the most at risk.
+- **Offers rendered only as images.** Extraction is HTML-text only. Djezzy currently
+  describes every offer in the page text (verified across the catalogue), but if a
+  future promo published a price *exclusively* inside a graphic, it would be missed
+  until the page's text is updated.
 - **Darija coverage is lexical.** Language detection and synonym expansion rely on
   a hand-built Darija word list; unusual spellings or code-switching that isn't in
   the list may be classified as French. The reply is still grounded in context,
@@ -186,6 +195,15 @@ An honest list of where the system is weak:
   `IndexFlatIP` only. Routing precision therefore rests on the lexicon and the
   exact-match chunk selection; an offer named with a spelling not in `OFFER_NAMES`
   can fall through to the NORMAL route.
+- **Off-domain refusal is LLM-judged, not a hard gate.** Calibration (≈95 queries,
+  all 4 languages) showed the embedding similarity score cannot separate off-topic
+  questions from real ones — e5 scores everything 0.77–0.85, and gibberish even
+  scores *higher* than some real questions. So the score floor is set low (0.70) to
+  catch only degenerate input, and topical off-domain (weather, jokes) is declined
+  by the LLM's domain-scope rule. This is a probabilistic guard: a cleverly phrased
+  off-topic question could occasionally get a partial answer. The trade is deliberate
+  — it removes the false-refusal risk that a strict score gate placed on real
+  customers (especially short Darija questions, which scored as low as 0.774).
 - **Budget parsing scope.** Budgets are recognized via a dinar token (`DA`,
   `dinars`, `دج`). A bare number with no currency word, or budgets phrased only in
   words ("cinq cents dinars"), are not parsed as budget intent.

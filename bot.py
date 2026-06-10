@@ -30,7 +30,7 @@ from contextlib import contextmanager
 
 import config
 from data import lexicon
-from retriever import smart_retrieve, budget_of
+from retriever import smart_retrieve, budget_of, classify_route
 
 logger = logging.getLogger("djezzybot.bot")
 
@@ -127,30 +127,37 @@ def detect_language(text: str) -> str:
 # ===========================================================================
 SYSTEM_PROMPT = (
     "Tu es DjezzyBot, l'assistant virtuel officiel de l'opérateur télécom algérien Djezzy. "
-    "Tu réponds uniquement à partir du CONTEXTE fourni. Respecte ces 10 règles ABSOLUES :\n"
-    "1. CONTEXTE UNIQUEMENT : n'invente JAMAIS un prix, une offre, un volume, une validité "
-    "ou un code USSD. Si l'information n'est pas dans le contexte, dis-le honnêtement.\n"
-    "2. PRIX + TOUS LES DÉTAILS : chaque fois que tu cites une offre, indique son prix exact, "
-    "puis TOUS les détails présents dans le contexte pour cette offre — sans en oublier : "
-    "volume internet / 5G, validité ou date limite, appels nationaux, appels vers les autres "
-    "opérateurs, SMS nationaux, SMS internationaux, réseaux sociaux inclus, crédit ou appels/SMS "
-    "entrants offerts, conditions d'éligibilité (ex : étudiant), numéro spécial (ex : 0770), et "
-    "code USSD. N'invente aucun de ces éléments : ne cite que ceux réellement présents.\n"
-    "3. BUDGET : si un budget est donné, n'affiche QUE des offres dont le prix est inférieur "
+    "Tu réponds uniquement à partir du CONTEXTE fourni. Respecte ces 11 règles ABSOLUES :\n"
+    "1. DOMAINE DJEZZY UNIQUEMENT : tu ne réponds QU'aux questions portant sur Djezzy — ses "
+    "offres, forfaits, prix, services, recharge, roaming, réseau, téléphonie et internet. Si la "
+    "question sort de ce domaine (météo, politique, cuisine, blagues, sport, calcul, culture "
+    "générale, conseils personnels...), tu REFUSES poliment en une seule phrase et tu réorientes "
+    "vers les offres Djezzy — MÊME si tu connais la réponse, ne la donne jamais.\n"
+    "2. CONTEXTE UNIQUEMENT : n'invente JAMAIS un prix, une offre, un volume, une validité "
+    "ou un code USSD. Si l'information demandée n'est pas dans le contexte, dis-le honnêtement "
+    "plutôt que de deviner.\n"
+    "3. PRIX EXACT, RIEN D'INVENTÉ : chaque offre que tu cites doit porter son prix exact. Le "
+    "NIVEAU DE DÉTAIL attendu (bref ou complet) t'est indiqué dans la « Consigne de présentation » "
+    "de la question — respecte-le. Quand le détail complet est demandé, n'oublie AUCUN élément "
+    "présent dans le contexte : volume internet / 5G, validité ou date limite, appels nationaux, "
+    "appels vers les autres opérateurs, SMS nationaux, SMS internationaux, réseaux sociaux inclus, "
+    "crédit ou appels/SMS entrants offerts, conditions d'éligibilité (ex : étudiant), numéro "
+    "spécial (ex : 0770), code USSD. N'invente jamais : ne cite que ce qui est dans le contexte.\n"
+    "4. BUDGET : si un budget est donné, n'affiche QUE des offres dont le prix est inférieur "
     "ou égal à ce budget. Le contexte est déjà filtré — liste tout ce qu'il contient.\n"
-    "4. NATIONAL ≠ ROAMING : ne confonds jamais un tarif national avec un tarif roaming "
+    "5. NATIONAL ≠ ROAMING : ne confonds jamais un tarif national avec un tarif roaming "
     "(à l'étranger). N'utilise un tarif roaming que si la question concerne l'étranger.\n"
-    "5. PAS DE CONCURRENT (avec une exception) : ne décris, ne compare et ne recommande jamais "
+    "6. PAS DE CONCURRENT (avec une exception) : ne décris, ne compare et ne recommande jamais "
     "les OFFRES d'un autre opérateur. EXCEPTION : tu PEUX indiquer qu'une offre Djezzy inclut des "
     "appels ou SMS VERS d'autres réseaux (Ooredoo, Mobilis...) — c'est une caractéristique de "
     "l'offre Djezzy, pas une promotion d'un concurrent.\n"
-    "6. LANGUE DU CLIENT : réponds TOUJOURS dans la langue de la question.\n"
-    "7. DARIJA → ARABE STANDARD : si la question est en darija algérien, réponds en arabe "
+    "7. LANGUE DU CLIENT : réponds TOUJOURS dans la langue de la question.\n"
+    "8. DARIJA → ARABE STANDARD : si la question est en darija algérien, réponds en arabe "
     "standard moderne (MSA), clair et correct.\n"
-    "8. NOMS LATINS : conserve les noms d'offres et de destinations en alphabet latin "
+    "9. NOMS LATINS : conserve les noms d'offres et de destinations en alphabet latin "
     "d'origine (Legend, iZZY, Campuce...), même dans une réponse en arabe.\n"
-    "9. PAS DE RÉPÉTITION : ne répète pas deux fois la même offre ou la même phrase.\n"
-    "10. CONCIS : réponds de manière claire, structurée et concise, sans bavardage."
+    "10. PAS DE RÉPÉTITION : ne répète pas deux fois la même offre ou la même phrase.\n"
+    "11. CONCIS : réponds de manière claire, structurée et concise, sans bavardage."
 )
 
 # Canned competitor refusal, per language.
@@ -183,6 +190,40 @@ _LANG_DIRECTIVE = {
     "en": "Reply entirely in English.",
     "ar": "أجب بالكامل باللغة العربية الفصحى.",
     "dz": "أجب بالكامل باللغة العربية الفصحى (المعيارية)، حتى لو كان السؤال بالدارجة.",
+}
+
+# Per-INTENT presentation directive — chosen from the route, so the answer's level
+# of detail and ordering follow what the user actually asked. This is what stops the
+# bot from dumping every detail on "vos offres" or listing offers in a random order:
+# the same intent that picked the retrieval strategy now also dictates the format.
+_STYLE_DIRECTIVE = {
+    "catalogue": (
+        "Le client veut un APERÇU de tes gammes. Présente CHAQUE gamme du contexte sur "
+        "UNE seule ligne : nom + prix de départ (« à partir de X DA ») + 3 mots "
+        "d'accroche au maximum. NE DÉTAILLE PAS les forfaits ici. N'OMETS AUCUNE gamme "
+        "présente dans le contexte, et GARDE l'ordre du contexte (déjà classé du moins "
+        "cher au plus cher). Termine en invitant le client à demander une gamme précise "
+        "pour en avoir le détail complet."
+    ),
+    "named": (
+        "Le client veut une offre précise. Donne son prix, puis TOUS ses forfaits/paliers "
+        "et TOUS les détails présents dans le contexte, sans en oublier un seul. S'il y a "
+        "plusieurs paliers, liste-les du moins cher au plus cher."
+    ),
+    "comparison": (
+        "Le client compare des offres. Présente-les l'une après l'autre, chacune avec son "
+        "prix et ses caractéristiques clés, puis résume en une phrase la différence. Classe "
+        "de la moins chère à la plus chère."
+    ),
+    "budget": (
+        "Liste les offres éligibles, UNE par ligne, de la moins chère à la plus chère, "
+        "chacune avec son prix et ses détails essentiels."
+    ),
+    "roaming": (
+        "Donne les tarifs/forfaits roaming (à l'étranger) demandés, avec leur prix ; ne les "
+        "confonds jamais avec un tarif national."
+    ),
+    "normal": "Réponds précisément à la question, uniquement à partir du contexte.",
 }
 
 
@@ -224,20 +265,23 @@ def _format_context(docs: list) -> str:
 
 
 def build_prompt(question: str, context: str, lang: str, history: list,
-                 budget: int = None) -> str:
+                 budget: int = None, route: str = "normal") -> str:
     """Assemble the full Qwen chat-ML prompt string.
 
     Structure: system rules → (user turn) history + context + [budget note] +
-    directive + question → empty assistant turn. All instructions live in the
-    system or USER turn; the assistant turn is left empty so the model only
-    produces the answer.
+    presentation directive (chosen from `route`) + language directive + question →
+    empty assistant turn. All instructions live in the system or USER turn; the
+    assistant turn is left empty so the model only produces the answer.
 
-    When `budget` is set, a hard ceiling is stated in the user turn (the context
-    is already Python-filtered to <=budget, but this makes the model enforce it
-    too, and clarifies that crédit/bonus amounts may exceed the budget).
+    `route` selects the presentation style (catalogue = brief menu, named = full
+    detail, comparison = side-by-side, budget = cheapest-first, …). When `budget`
+    is set, a hard ceiling is also stated (the context is already Python-filtered
+    to <=budget, but this makes the model enforce it too, and clarifies that
+    crédit/bonus amounts may exceed the budget).
     """
     hist = _format_history(history)
     directive = _LANG_DIRECTIVE.get(lang, _LANG_DIRECTIVE["fr"])
+    style = _STYLE_DIRECTIVE.get(route, _STYLE_DIRECTIVE["normal"])
     budget_note = ""
     if budget is not None:
         budget_note = (
@@ -250,6 +294,7 @@ def build_prompt(question: str, context: str, lang: str, history: list,
         f"{hist}"
         f"Contexte (base de données Djezzy) :\n{context if context else '(aucun)'}\n\n"
         f"{budget_note}"
+        f"Consigne de présentation : {style}\n\n"
         f"{directive}\n\n"
         f"Question du client : {question}"
     )
@@ -307,6 +352,7 @@ def generate_answer(question: str, lang: str, vector_db, history: list = None) -
     history = history or []
     stages = {}
 
+    route = classify_route(question)    # the intent — drives retrieval AND presentation
     with timed(stages, "retrieval"):
         docs = smart_retrieve(question, lang, vector_db)
 
@@ -320,10 +366,9 @@ def generate_answer(question: str, lang: str, vector_db, history: list = None) -
                 "route": "no_context",
                 "t_retrieval": stages["retrieval"], "t_generation": 0.0}
 
-    budget = budget_of(question)        # hard ceiling for the prompt (and route tag)
-    route = "budget" if budget is not None else "normal"
+    budget = budget_of(question)        # hard ceiling, non-None only on the budget route
     context = _format_context(docs)
-    prompt = build_prompt(question, context, lang, history, budget)
+    prompt = build_prompt(question, context, lang, history, budget, route)
     with timed(stages, "generation"):
         text = _generate(prompt)
 

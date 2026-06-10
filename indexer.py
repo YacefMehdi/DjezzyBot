@@ -22,7 +22,7 @@ Public API
     embed_query(text)               -> np.ndarray       ("query: " + normalize)
 
 `Document` is langchain_core.documents.Document with metadata
-{source_url, page_title, has_ocr}.
+{source_url, page_title}.
 """
 
 import os
@@ -31,6 +31,16 @@ import logging
 import config
 
 logger = logging.getLogger("djezzybot.indexer")
+
+# LangChain's FAISS decides how to embed a QUERY by checking `isinstance(emb,
+# Embeddings)`; if our adapter isn't a real subclass it falls back to CALLING the
+# object (→ "'_E5Embeddings' object is not callable"). So we subclass the base.
+# Imported with a fallback so the pure-logic modules still import where LangChain
+# isn't installed (local tests); on Colab the real base is used.
+try:
+    from langchain_core.embeddings import Embeddings as _LCEmbeddings
+except Exception:
+    _LCEmbeddings = object
 
 _embedder = None  # cached SentenceTransformer
 
@@ -48,7 +58,7 @@ def get_embedder():
     return _embedder
 
 
-class _E5Embeddings:
+class _E5Embeddings(_LCEmbeddings):
     """LangChain-compatible embeddings adapter that applies the e5 prefixes.
 
     LangChain's FAISS wrapper calls embed_documents()/embed_query(); we make those
@@ -84,7 +94,7 @@ def chunk_documents(pages: list) -> list:
 
     Splitting is done per page (each page handled independently), so a chunk can
     never mix content from two different URLs. Metadata carried on every chunk:
-    source_url, page_title, has_ocr.
+    source_url, page_title.
     """
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_core.documents import Document
@@ -103,7 +113,6 @@ def chunk_documents(pages: list) -> list:
         meta = {
             "source_url": page.get("url", ""),
             "page_title": page.get("title", ""),
-            "has_ocr": page.get("has_ocr", False),
         }
         for chunk in splitter.split_text(content):  # per-page → no cross-page chunks
             docs.append(Document(page_content=chunk, metadata=dict(meta)))
