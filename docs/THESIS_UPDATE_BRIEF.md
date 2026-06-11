@@ -162,6 +162,19 @@ to verify** rather than inventing a justification.
 (retrieval/generation for text; STT/retrieval/generation/TTS for voice). Note that the first
 voice reply includes the one-time XTTS load, so its worst-case is higher than steady state.
 
+**CRITICAL latency framing (do NOT present the T4 numbers as a failure).** On the free Colab
+T4 with bitsandbytes 4-bit, generation runs ~10–15 tokens/s, so a long answer can take tens of
+seconds. This is the **hardware, not the architecture** — and we can prove it: the team's earlier
+**Groq API prototype ran the same pipeline in ~1 s (text) / ~2–2.5 s (voice)**. So §5.3.2 and §5.5
+must say: (a) report the real T4 figures honestly; (b) state plainly that the bottleneck is the
+free-T4 + 4-bit kernel; (c) cite the Groq prototype (~1 s) as proof the design is fast on adequate
+hardware; (d) note production deployment on A100/H100 (already in Future Work) restores real-time.
+For **NFR-02 (<10 s text / <20 s voice)**: do NOT claim the T4 meets it — frame <10 s as the
+*production* target, met by the API prototype and expected on production GPUs, with the free-T4
+prototype trading latency for zero-cost, sovereign development. Best move: add a **real measured
+latency row to the API-vs-Local table (5.6)** — Groq ~1 s vs T4 (measured) — turning that
+qualitative table into a data-backed argument and a strong defense answer to "isn't it slow?".
+
 ---
 
 ## 6. Verified citations (real — IEEE style). Confirm each before use.

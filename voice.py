@@ -203,7 +203,15 @@ def synthesize(text: str, lang: str) -> str:
     xtts_lang = config.TTS_LANG_MAP.get(lang, "fr")
     spoken = _expand_for_tts(text, lang)
     out_path = os.path.join(_tts_dir, f"tts_{int(time.time()*1000)}.wav")
-    model.tts_to_file(text=spoken, language=xtts_lang, file_path=out_path)
+    # XTTS-v2 is a multi-speaker (voice-cloning) model; newer Coqui builds REQUIRE
+    # an explicit speaker. Use the first built-in studio voice so the call never
+    # errors and every answer keeps the same consistent voice. (Single-speaker
+    # builds expose no `speakers`, so we simply omit it and keep the old behaviour.)
+    kwargs = {}
+    speakers = getattr(model, "speakers", None) or []
+    if speakers:
+        kwargs["speaker"] = speakers[0]
+    model.tts_to_file(text=spoken, language=xtts_lang, file_path=out_path, **kwargs)
     return out_path
 
 

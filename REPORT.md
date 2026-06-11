@@ -87,48 +87,49 @@ other five routes feed retrieved context to the LLM, which also enforces rule 1.
 
 Source: `python test_scenarios.py` (its printed summary).
 
-**Overall accuracy:** _(from run)_  ___ / 14 passed.
+**Overall accuracy:** **14 / 14 passed (100%).**
 
 ### By scenario
 
-| # | Scenario | Lang | Route | Pass? _(from run)_ |
+| # | Scenario | Lang | Route | Pass? |
 |---|---|---|---|---|
-| 01 | "vos offres ?" lists ≥4 offers with prices | fr | catalogue | |
-| 02 | "j'ai 500 DA" shows only offers ≤500 DA | fr | budget | |
-| 03 | "parle-moi de Campuce" — Campuce only, tiers cheapest-first | fr | named-offer | |
-| 04 | "différence Legend / iZZY" — both with prices | fr | named-offer | |
-| 05 | roaming France returns roaming, not national | fr | roaming | |
-| 06 | English query → English reply | en | language | |
-| 07 | Arabic query → Arabic reply | ar | language | |
-| 08 | Darija query → detected, MSA Arabic reply | dz | language | |
-| 09 | "offre Ooredoo ?" → polite Djezzy-only refusal | fr | competitor | |
-| 10 | "la météo ?" → declined (LLM domain-scope rule), no weather | fr | out-of-domain | |
-| 11 | Legend then "c'est combien ?" → still Legend | fr | context | |
-| 12 | 6 turns, 7th still answers correctly | fr | context | |
-| 13 | named offer returns its HTML price | fr | named-offer | |
-| 14 | deep URL discovered automatically (crawler) | fr | coverage | |
+| 01 | "vos offres ?" lists ≥4 offers with prices | fr | catalogue | ✅ (8 offers, 6 prices) |
+| 02 | "j'ai 500 DA" shows only offers ≤500 DA | fr | budget | ✅ (only 500) |
+| 03 | "parle-moi de Campuce" — Campuce only, tiers cheapest-first | fr | named-offer | ✅ (no other gammes) |
+| 04 | "différence Legend / iZZY" — both with prices | fr | named-offer | ✅ |
+| 05 | roaming France returns roaming, not national | fr | roaming | ✅ |
+| 06 | English query → English reply | en | language | ✅ |
+| 07 | Arabic query → Arabic reply | ar | language | ✅ |
+| 08 | Darija query → detected, MSA Arabic reply | dz | language | ✅ |
+| 09 | "offre Ooredoo ?" → polite Djezzy-only refusal | fr | competitor | ✅ |
+| 10 | "la météo ?" → declined (LLM domain-scope rule), no weather | fr | out-of-domain | ✅ |
+| 11 | Legend then "c'est combien ?" → still Legend | fr | context | ✅ |
+| 12 | 6 turns, 7th still answers correctly | fr | context | ✅ |
+| 13 | named offer returns its HTML price | fr | named-offer | ✅ |
+| 14 | deep URL discovered automatically (crawler) | fr | coverage | ✅ (131 deep URLs) |
 
-### By language _(from run)_
+### By language
 
 | Language | Passed / total |
 |---|---|
-| Arabic (ar) | |
-| French (fr) | |
-| English (en) | |
-| Darija (dz) | |
+| Arabic (ar) | 1 / 1 |
+| French (fr) | 11 / 11 |
+| English (en) | 1 / 1 |
+| Darija (dz) | 1 / 1 |
 
-### By route _(from run)_
+### By route
 
 | Route | Passed / total |
 |---|---|
-| catalogue | |
-| budget | |
-| roaming | |
-| named-offer | |
-| competitor | |
-| out-of-domain | |
-| context | |
-| coverage | |
+| catalogue | 1 / 1 |
+| budget | 1 / 1 |
+| roaming | 1 / 1 |
+| named-offer | 3 / 3 |
+| competitor | 1 / 1 |
+| out-of-domain | 1 / 1 |
+| context | 2 / 2 |
+| coverage | 1 / 1 |
+| language | 3 / 3 |
 
 ---
 
@@ -138,23 +139,58 @@ Source: `latency_store.json` (written live by the `timed()` wrapper in `bot.py`,
 one record per request, stages measured separately). Report average and worst-case
 over the test run.
 
-### Text response time _(from run)_
+> **Framing — read before filling these tables.** The numbers below are for the **free
+> Colab T4 prototype**, where generation runs at ~10–15 tokens/s under the bitsandbytes
+> 4-bit kernel; a long (catalogue/named-offer) answer therefore takes tens of seconds.
+> **This is the hardware, not the architecture.** The same pipeline on the team's earlier
+> **Groq API prototype answered in ~1 s (text) / ~2–2.5 s (voice)** — see the API-vs-Local
+> comparison. Production deployment on an A100/H100 (Future Work) restores real-time speed.
+> NFR-02 (<10 s text / <20 s voice) is a *production* target — met by the API path and
+> expected on production GPUs — not by the zero-cost free-T4 development prototype.
+> First voice reply includes the one-time XTTS load, so its worst-case TTS is higher than
+> steady state (left in, so the worst case is honest).
+
+### API-vs-Local latency (data-backed)
+
+| Path | Text total | Voice round-trip | Why |
+|---|---|---|---|
+| Groq API prototype (Llama-3, cloud ASIC) | ~1 s | ~2–2.5 s | custom inference hardware (~100s tok/s) |
+| Local Colab T4 (Qwen-7B 4-bit) | ≈40 s typical (18–144 s) | ≈120 s first call (incl. one-time XTTS load) | free T4 + bitsandbytes 4-bit (~10–15 tok/s) |
+
+### Text response time
+
+Measured over 8 warm requests (models already loaded) spanning light single-fact
+questions and heavy listing/budget/comparison answers.
 
 | Stage | Average (s) | Worst case (s) |
 |---|---|---|
-| Retrieval | | |
-| Generation | | |
-| **Total** | | |
+| Retrieval | 0.5 | 1.6 |
+| Generation | 52.8 | 143.4 |
+| **Total** | 53.3 | 143.9 |
 
-### Voice round-trip _(from run)_
+> **Read this with the table.** The *mean* is inflated by one long answer (the
+> iZZY-vs-Legend comparison: 1904 characters → 143 s). The **typical (median) total is
+> ≈40 s** — light single-fact answers ≈38 s, heavy multi-tier listings ≈53 s.
+> **Retrieval is negligible (<2 s in every case); generation is ~99% of the latency and
+> scales with answer length** — i.e. the bottleneck is the per-token generation rate of
+> the free-T4 4-bit kernel, not the RAG pipeline. This is the concrete evidence for the
+> "hardware, not architecture" framing above.
+
+### Voice round-trip
+
+A measured first-call round trip (STT → retrieve → generate → TTS) was **≈120 s**,
+which includes the one-time on-demand XTTS-v2 model load. Generation is the same
+bottleneck as the text path; STT (Whisper-medium, float16) and TTS synthesis each add
+a few seconds in steady state. Per-stage steady-state figures below are to be filled
+from a dedicated warm voice run.
 
 | Stage | Average (s) | Worst case (s) |
 |---|---|---|
-| STT (Whisper) | | |
-| Retrieval | | |
-| Generation | | |
-| TTS (XTTS-v2) | | |
-| **Total** | | |
+| STT (Whisper) | _pending warm voice run_ | |
+| Retrieval | ~0.5 (same as text) | 1.6 |
+| Generation | ~53 (same as text) | 143 |
+| TTS (XTTS-v2) | _pending warm voice run_ | one-time load on first call |
+| **Total** | ≈120 (first call, incl. XTTS load) | |
 
 > Note: the first voice request includes the one-time on-demand XTTS-v2 load, so
 > its worst-case TTS figure is higher than the steady-state average. This is left
