@@ -84,9 +84,21 @@
 \newcommand{\numChunks}{769}\newcommand{\numRoutes}{7}\newcommand{\numRules}{11}
 \newcommand{\numTestsPass}{13}\newcommand{\numTestsTotal}{14}\newcommand{\numDeepUrls}{131}
 \newcommand{\vramResident}{8}\newcommand{\vramPeak}{10}
-% Latency — TODO: fill from latency_store.json after the Colab T4 run
-\newcommand{\latRetrieval}{\textbf{[TODO]}}\newcommand{\latGeneration}{\textbf{[TODO]}}
-\newcommand{\latTextTotal}{\textbf{[TODO]}}\newcommand{\latVoiceTotal}{\textbf{[TODO]}}
+% ============================================================================
+% LATENCY — fill these after the Colab T4 run (numbers in seconds, e.g. 0.12).
+% Source: aggregate latency_store.json (see test_scenarios.py). Leave [TODO]
+% until you have real numbers. THIS IS THE ONLY PLACE TO EDIT for latency.
+% --- text path ---
+\newcommand{\latTxtRetAvg}{\textbf{[TODO]}}\newcommand{\latTxtRetWorst}{\textbf{[TODO]}}
+\newcommand{\latTxtGenAvg}{\textbf{[TODO]}}\newcommand{\latTxtGenWorst}{\textbf{[TODO]}}
+\newcommand{\latTxtTotAvg}{\textbf{[TODO]}}\newcommand{\latTxtTotWorst}{\textbf{[TODO]}}
+% --- voice path ---
+\newcommand{\latVoiSttAvg}{\textbf{[TODO]}}\newcommand{\latVoiSttWorst}{\textbf{[TODO]}}
+\newcommand{\latVoiRetAvg}{\textbf{[TODO]}}\newcommand{\latVoiRetWorst}{\textbf{[TODO]}}
+\newcommand{\latVoiGenAvg}{\textbf{[TODO]}}\newcommand{\latVoiGenWorst}{\textbf{[TODO]}}
+\newcommand{\latVoiTtsAvg}{\textbf{[TODO]}}\newcommand{\latVoiTtsWorst}{\textbf{[TODO]}}
+\newcommand{\latVoiTotAvg}{\textbf{[TODO]}}\newcommand{\latVoiTotWorst}{\textbf{[TODO]}}
+% ============================================================================
 \geometry{a4paper, margin=2.5cm}
 
 \begin{document}
@@ -1533,9 +1545,9 @@ budget        & 0 / 1 & the one failure (see below) \\
 \toprule
 \textbf{Stage} & \textbf{Average (s)} & \textbf{Worst case (s)} \\
 \midrule
-Retrieval   & \latRetrieval  & \textbf{[TODO]} \\
-Generation  & \latGeneration & \textbf{[TODO]} \\
-\textbf{Total} & \latTextTotal & \textbf{[TODO]} \\
+Retrieval   & \latTxtRetAvg  & \latTxtRetWorst \\
+Generation  & \latTxtGenAvg  & \latTxtGenWorst \\
+\textbf{Total} & \latTxtTotAvg & \latTxtTotWorst \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -1548,11 +1560,11 @@ Generation  & \latGeneration & \textbf{[TODO]} \\
 \toprule
 \textbf{Stage} & \textbf{Average (s)} & \textbf{Worst case (s)} \\
 \midrule
-STT (Whisper-medium) & \textbf{[TODO]} & \textbf{[TODO]} \\
-Retrieval            & \textbf{[TODO]} & \textbf{[TODO]} \\
-Generation           & \textbf{[TODO]} & \textbf{[TODO]} \\
-TTS (XTTS-v2)         & \textbf{[TODO]} & \textbf{[TODO]} \\
-\textbf{Total}        & \latVoiceTotal & \textbf{[TODO]} \\
+STT (Whisper-medium) & \latVoiSttAvg & \latVoiSttWorst \\
+Retrieval            & \latVoiRetAvg & \latVoiRetWorst \\
+Generation           & \latVoiGenAvg & \latVoiGenWorst \\
+TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
+\textbf{Total}        & \latVoiTotAvg & \latVoiTotWorst \\
 \bottomrule
 \end{tabularx}
 \end{table}
