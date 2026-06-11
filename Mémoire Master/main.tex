@@ -890,12 +890,12 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
   \node[align=center, font=\small\bfseries] at (-4.5, -4.5) {Layer 4\\Data};
   \node[align=center, font=\small\bfseries] at (-4.5, -6.0) {Layer 5\\Voice};
 
-  % --- Right column: components ---
-  \node[align=center, font=\small] at (2.0,  0.0) {Gradio UI --- text input and microphone};
-  \node[align=center, font=\small] at (2.0, -1.5) {Language detection \textbullet{} direct multilingual embedding (no translation)};
-  \node[align=center, font=\small] at (2.0, -3.0) {Intent router (\numRoutes{} routes) \textbullet{} dense FAISS \textbullet{} Qwen~2.5};
-  \node[align=center, font=\small] at (2.0, -4.5) {JSON knowledge base \textbullet{} FAISS index};
-  \node[align=center, font=\small] at (2.0, -6.0) {Whisper-medium (STT) \textbullet{} XTTS-v2 (TTS)};
+  % --- Right column: components (fixed text width so long rows wrap in-cell) ---
+  \node[align=center, font=\small, text width=8.2cm] at (2.0,  0.0) {Gradio UI --- text input and microphone};
+  \node[align=center, font=\small, text width=8.2cm] at (2.0, -1.5) {Language detection \textbullet{} direct multilingual embedding (no translation)};
+  \node[align=center, font=\small, text width=8.2cm] at (2.0, -3.0) {Intent router (\numRoutes{} routes) \textbullet{} dense FAISS \textbullet{} Qwen~2.5};
+  \node[align=center, font=\small, text width=8.2cm] at (2.0, -4.5) {JSON knowledge base \textbullet{} FAISS index};
+  \node[align=center, font=\small, text width=8.2cm] at (2.0, -6.0) {Whisper-medium (STT) \textbullet{} XTTS-v2 (TTS)};
 
   % --- Séparateurs horizontaux ---
   \foreach \y in {-0.75, -2.25, -3.75, -5.25} {
@@ -1262,21 +1262,21 @@ Pure gibberish (keyboard mash)        & 0.798 -- 0.838 \\
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-    box/.style={draw, rectangle, rounded corners=3pt, minimum width=3.2cm, minimum height=1cm, align=center, font=\small, fill=white},
+    box/.style={draw, rectangle, rounded corners=3pt, minimum width=3cm, minimum height=1cm, align=center, font=\small, fill=white},
     arr/.style={->, thick, >=stealth}
 ]
-  % Nodes
-  \node[box, fill=gray!15]   (mic)     at (0, 0) {Microphone\\(audio in)};
-  \node[box, fill=orange!15] (stt)     at (4.5, 0) {Whisper-medium\\(STT)};
-  \node[box, fill=green!15]  (rag)     at (9, 0) {RAG pipeline\\(Qwen~2.5)};
-  \node[box, fill=purple!15] (tts)     at (9, -2.5) {XTTS-v2\\(TTS, on demand)};
-  \node[box, fill=gray!15]   (speaker) at (0, -2.5) {Speaker\\(audio out)};
+  % Nodes (spread out so the edge labels do not collide with the boxes)
+  \node[box, fill=gray!15]   (mic)     at (0, 0)     {Microphone\\(audio in)};
+  \node[box, fill=orange!15] (stt)     at (5.5, 0)   {Whisper-medium\\(STT)};
+  \node[box, fill=green!15]  (rag)     at (11, 0)    {RAG pipeline\\(Qwen~2.5)};
+  \node[box, fill=purple!15] (tts)     at (11, -2.6) {XTTS-v2\\(TTS, on demand)};
+  \node[box, fill=gray!15]   (speaker) at (0, -2.6)  {Speaker\\(audio out)};
 
-  % Arrows
-  \draw[arr] (mic) -- node[above, font=\footnotesize] {Voice} (stt);
-  \draw[arr] (stt) -- node[above, font=\footnotesize] {Transcribed text} (rag);
-  \draw[arr] (rag) -- node[right, font=\footnotesize] {Text answer} (tts);
-  \draw[arr] (tts) -- node[above, font=\footnotesize] {Synthesized voice} (speaker);
+  % Arrows (compact, two-line labels keep them clear of the nodes)
+  \draw[arr] (mic) -- node[above, font=\scriptsize] {Voice} (stt);
+  \draw[arr] (stt) -- node[above, font=\scriptsize, align=center] {Transcribed\\text} (rag);
+  \draw[arr] (rag) -- node[right, font=\scriptsize, align=center] {Text\\answer} (tts);
+  \draw[arr] (tts) -- node[below, font=\scriptsize] {Synthesized voice} (speaker);
 
 \end{tikzpicture}
 \caption{DjezzyBot's voice pipeline workflow}
