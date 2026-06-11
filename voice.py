@@ -113,8 +113,15 @@ def load_tts():
     """Load (once, lazily) Coqui XTTS-v2. Called on the first synth, not at boot."""
     global _tts
     if _tts is None:
-        from TTS.api import TTS
         import torch
+        # Coqui-TTS's tortoise layer does `from transformers.pytorch_utils import
+        # isin_mps_friendly`, which newer transformers no longer expose — the import
+        # then dies with ImportError. Provide the function if it's missing (it's just
+        # a thin wrapper over torch.isin), so TTS imports across transformers versions.
+        import transformers.pytorch_utils as _ptu
+        if not hasattr(_ptu, "isin_mps_friendly"):
+            _ptu.isin_mps_friendly = lambda elements, test_elements: torch.isin(elements, test_elements)
+        from TTS.api import TTS
         logger.info("loading XTTS-v2 (on demand) %s", config.TTS_MODEL_ID)
         _tts = TTS(config.TTS_MODEL_ID).to("cuda" if torch.cuda.is_available() else "cpu")
     return _tts

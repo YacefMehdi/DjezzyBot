@@ -82,16 +82,16 @@
 % --- VOLATILE FIGURES (update in one place when the system changes) ---
 \newcommand{\numPages}{427}\newcommand{\numArPages}{190}\newcommand{\numPricedPages}{117}
 \newcommand{\numChunks}{769}\newcommand{\numRoutes}{7}\newcommand{\numRules}{11}
-\newcommand{\numTestsPass}{13}\newcommand{\numTestsTotal}{14}\newcommand{\numDeepUrls}{131}
+\newcommand{\numTestsPass}{14}\newcommand{\numTestsTotal}{14}\newcommand{\numDeepUrls}{131}
 \newcommand{\vramResident}{8}\newcommand{\vramPeak}{10}
 % ============================================================================
 % LATENCY — fill these after the Colab T4 run (numbers in seconds, e.g. 0.12).
 % Source: aggregate latency_store.json (see test_scenarios.py). Leave [TODO]
 % until you have real numbers. THIS IS THE ONLY PLACE TO EDIT for latency.
 % --- text path ---
-\newcommand{\latTxtRetAvg}{\textbf{[TODO]}}\newcommand{\latTxtRetWorst}{\textbf{[TODO]}}
-\newcommand{\latTxtGenAvg}{\textbf{[TODO]}}\newcommand{\latTxtGenWorst}{\textbf{[TODO]}}
-\newcommand{\latTxtTotAvg}{\textbf{[TODO]}}\newcommand{\latTxtTotWorst}{\textbf{[TODO]}}
+\newcommand{\latTxtRetAvg}{0.5}\newcommand{\latTxtRetWorst}{1.6}
+\newcommand{\latTxtGenAvg}{52.8}\newcommand{\latTxtGenWorst}{143.4}
+\newcommand{\latTxtTotAvg}{53.3}\newcommand{\latTxtTotWorst}{143.9}
 % --- voice path ---
 \newcommand{\latVoiSttAvg}{\textbf{[TODO]}}\newcommand{\latVoiSttWorst}{\textbf{[TODO]}}
 \newcommand{\latVoiRetAvg}{\textbf{[TODO]}}\newcommand{\latVoiRetWorst}{\textbf{[TODO]}}
@@ -175,7 +175,7 @@ academic year 2025--2026.}
 \addcontentsline{toc}{chapter}{Abstract}
 
 \textbf{Abstract}\\[0.3cm]
-This thesis presents the design and implementation of \textbf{DjezzyBot}, a multilingual virtual assistant for subscribers of the Algerian operator Djezzy. Call centers handle a large volume of repetitive, factual questions, and there is no NLP tool fitted to the mix of languages used in Algeria (French, Modern Standard Arabic, English, and Algerian Darija). DjezzyBot answers questions about offers and prices \emph{only} from text scraped from Djezzy's own websites, through a \textbf{RAG} (\textit{Retrieval-Augmented Generation}) pipeline built entirely on free, open-source models that run on a single Google Colab T4 GPU (15~GB). Retrieval is a rule-based intent router with \numRoutes{} routes placed in front of a dense \textbf{FAISS} index (\texttt{multilingual-e5} embeddings, exact cosine search); generation uses \textbf{Qwen2.5-7B-Instruct} quantized to 4-bit. The assistant also accepts and produces speech (Whisper for recognition, Coqui XTTS-v2 for synthesis). Out-of-domain questions are handled by two layers --- a low similarity floor and the model's own domain-scope rule --- a design we justify with a calibration experiment on about 95 queries, which shows that the embedding score alone cannot separate real questions from off-topic ones. On \numTestsTotal{} acceptance scenarios across four languages, the system passes \numTestsPass{}/\numTestsTotal{} (about 92\,\%).
+This thesis presents the design and implementation of \textbf{DjezzyBot}, a multilingual virtual assistant for subscribers of the Algerian operator Djezzy. Call centers handle a large volume of repetitive, factual questions, and there is no NLP tool fitted to the mix of languages used in Algeria (French, Modern Standard Arabic, English, and Algerian Darija). DjezzyBot answers questions about offers and prices \emph{only} from text scraped from Djezzy's own websites, through a \textbf{RAG} (\textit{Retrieval-Augmented Generation}) pipeline built entirely on free, open-source models that run on a single Google Colab T4 GPU (15~GB). Retrieval is a rule-based intent router with \numRoutes{} routes placed in front of a dense \textbf{FAISS} index (\texttt{multilingual-e5} embeddings, exact cosine search); generation uses \textbf{Qwen2.5-7B-Instruct} quantized to 4-bit. The assistant also accepts and produces speech (Whisper for recognition, Coqui XTTS-v2 for synthesis). Out-of-domain questions are handled by two layers --- a low similarity floor and the model's own domain-scope rule --- a design we justify with a calibration experiment on about 95 queries, which shows that the embedding score alone cannot separate real questions from off-topic ones. On \numTestsTotal{} acceptance scenarios across four languages, the system passes \numTestsPass{}/\numTestsTotal{} (100\,\%).
 
 \textbf{Keywords:} LLM, RAG, Chatbot, NLP, Darija, Qwen~2.5, FAISS, multilingual-e5, Whisper, XTTS, Virtual Assistant, Djezzy.
 
@@ -185,7 +185,7 @@ This thesis presents the design and implementation of \textbf{DjezzyBot}, a mult
 
 \begin{french}
 \textbf{Résumé}\\[0.3cm]
-Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un assistant virtuel multilingue destiné aux abonnés de l'opérateur algérien Djezzy. Face au volume élevé de questions factuelles récurrentes adressées aux centres d'appels et à l'absence d'outil NLP adapté au contexte algérien (français, arabe standard, anglais et darija algérienne), le système répond aux questions sur les offres et les prix \emph{uniquement} à partir de textes extraits des sites officiels de Djezzy, via une architecture \textbf{RAG} (\textit{Retrieval-Augmented Generation}) reposant entièrement sur des modèles libres et gratuits exécutés sur un seul GPU Google Colab T4 (15~Go). La recherche s'appuie sur un routeur d'intention à règles (\numRoutes{} routes) placé devant un index dense \textbf{FAISS} (embeddings \texttt{multilingual-e5}, similarité cosinus exacte)~; la génération est assurée par \textbf{Qwen2.5-7B-Instruct} quantifié en 4-bit. L'assistant gère aussi la voix (Whisper pour la reconnaissance, Coqui XTTS-v2 pour la synthèse). Les questions hors-domaine sont traitées par deux niveaux --- un seuil de similarité bas et la règle de domaine du modèle lui-même ---, un choix que nous justifions par une expérience de calibration sur environ 95 requêtes. Sur \numTestsTotal{} scénarios d'acceptation couvrant quatre langues, le système réussit \numTestsPass{}/\numTestsTotal{} (environ 92\,\%).
+Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un assistant virtuel multilingue destiné aux abonnés de l'opérateur algérien Djezzy. Face au volume élevé de questions factuelles récurrentes adressées aux centres d'appels et à l'absence d'outil NLP adapté au contexte algérien (français, arabe standard, anglais et darija algérienne), le système répond aux questions sur les offres et les prix \emph{uniquement} à partir de textes extraits des sites officiels de Djezzy, via une architecture \textbf{RAG} (\textit{Retrieval-Augmented Generation}) reposant entièrement sur des modèles libres et gratuits exécutés sur un seul GPU Google Colab T4 (15~Go). La recherche s'appuie sur un routeur d'intention à règles (\numRoutes{} routes) placé devant un index dense \textbf{FAISS} (embeddings \texttt{multilingual-e5}, similarité cosinus exacte)~; la génération est assurée par \textbf{Qwen2.5-7B-Instruct} quantifié en 4-bit. L'assistant gère aussi la voix (Whisper pour la reconnaissance, Coqui XTTS-v2 pour la synthèse). Les questions hors-domaine sont traitées par deux niveaux --- un seuil de similarité bas et la règle de domaine du modèle lui-même ---, un choix que nous justifions par une expérience de calibration sur environ 95 requêtes. Sur \numTestsTotal{} scénarios d'acceptation couvrant quatre langues, le système réussit \numTestsPass{}/\numTestsTotal{} (100\,\%).
 
 \textbf{Mots-clés :} LLM, RAG, Chatbot, NLP, Darija, Qwen~2.5, FAISS, multilingual-e5, Whisper, XTTS, Assistant Virtuel, Djezzy.
 \end{french}
@@ -205,7 +205,7 @@ Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un
 (تضمينات \LR{multilingual-e5}، بحث جيب التمام الدقيق)؛ ويتكفّل بالتوليد نموذج \LR{Qwen2.5-7B-Instruct} المُكمَّم إلى 4-بت.
 يدعم النظام أيضاً الصوت (\LR{Whisper} للتعرّف و\LR{Coqui XTTS-v2} للتركيب). تُعالَج الأسئلة خارج النطاق عبر طبقتين
 --- عتبة تشابه منخفضة وقاعدة النطاق الخاصة بالنموذج ---، وهو خيار نبرّره بتجربة معايرة على نحو 95 استفساراً.
-على \numTestsTotal{} سيناريو قبول تغطّي أربع لغات، ينجح النظام في \LR{\numTestsPass{}/\numTestsTotal{}} (نحو 92\,\%).
+على \numTestsTotal{} سيناريو قبول تغطّي أربع لغات، ينجح النظام في \LR{\numTestsPass{}/\numTestsTotal{}} (100\,\%).
 
 {\textbf{الكلمات المفتاحية:}} نموذج لغوي كبير، \LR{RAG}، روبوت محادثة، معالجة اللغة الطبيعية، الدارجة، \LR{Qwen 2.5}، \LR{FAISS}، \LR{multilingual-e5}، \LR{Whisper}، \LR{XTTS}، مساعد افتراضي، جيزي.
 \end{Arabic}
@@ -1494,7 +1494,7 @@ def voice_answer(audio_path, vector_db, history=None):
 \section{Evaluation Results}
 
 \subsection{Overall, by Language and by Route}
-\humantext{On the latest Colab T4 run, DjezzyBot passes \textbf{\numTestsPass{}/\numTestsTotal{}} scenarios (about 92\,\%). The single failure is the budget scenario, a data-quality weakness discussed below. Tables~\ref{tab:pass_lang} and~\ref{tab:pass_route} give the breakdown by language and by route.}
+\humantext{On the latest Colab T4 run, DjezzyBot passes all \textbf{\numTestsPass{}/\numTestsTotal{}} scenarios (100\,\%). The budget scenario passes too, but it stays the weakest route, for a data-quality reason we discuss below. Tables~\ref{tab:pass_lang} and~\ref{tab:pass_route} give the breakdown by language and by route.}
 
 \begin{table}[H]
 \centering
@@ -1504,7 +1504,7 @@ def voice_answer(audio_path, vector_db, history=None):
 \toprule
 \textbf{Language} & \textbf{Passed / total} & \textbf{Note} \\
 \midrule
-French (fr)  & 10 / 11 & only the budget scenario fails \\
+French (fr)  & 11 / 11 & --- \\
 English (en) & 1 / 1   & --- \\
 Arabic (ar)  & 1 / 1   & --- \\
 Darija (dz)  & 1 / 1   & detected as dz, answered in MSA \\
@@ -1529,13 +1529,13 @@ competitor    & 1 / 1 & instant ``Djezzy only'' refusal \\
 out-of-domain & 1 / 1 & weather declined, no fabrication \\
 context       & 2 / 2 & follow-ups keep the right offer \\
 coverage      & 1 / 1 & deep URL discovered by the crawler \\
-budget        & 0 / 1 & the one failure (see below) \\
+budget        & 1 / 1 & passes after the per-unit-rate fix; weakest route \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \subsection{Latency}
-\humantext{Latency is recorded per stage by the timing wrapper in \texttt{bot.py}, one record per request. Tables~\ref{tab:lat_text} and~\ref{tab:lat_voice} report the average and worst case over the test run. \emph{(These figures are filled from the \texttt{latency\_store.json} of a Colab T4 run; the macros below are placeholders until that run is pasted in.)}}
+\humantext{Latency is recorded per stage by the timing wrapper in \texttt{bot.py}, one record per request. Tables~\ref{tab:lat_text} and~\ref{tab:lat_voice} report the average and worst case over the test run. \emph{(The text-path figures come from a warm Colab T4 run; the voice-path macros are filled once a dedicated voice run is recorded.)}}
 
 \begin{table}[H]
 \centering
@@ -1551,6 +1551,8 @@ Generation  & \latTxtGenAvg  & \latTxtGenWorst \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\humantext{The average hides the shape of the data. Most replies land around 40~s; the 53~s average is pulled up by one long comparison answer (1904 characters, 144~s). Retrieval never costs more than two seconds --- generation is the whole bill, and it grows with the length of the answer, because the free T4 decodes the 4-bit model at roughly 10--15 tokens per second. That is a hardware ceiling, not a flaw in the design: the same pipeline on our early Groq prototype answered in about one second. We discuss this trade-off again in the API-vs-local comparison.}
 
 \begin{table}[H]
 \centering
@@ -1571,8 +1573,8 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 
 \humantext{Note: the first voice reply includes the one-time on-demand load of XTTS-v2, so its worst-case TTS figure is higher than the steady-state average. We leave that in rather than discarding it, so the worst case stays honest.}
 
-\subsection{Failure Analysis}
-\humantext{Only one scenario fails, and it is the budget route. The cause is the data, not the routing. Djezzy crams subscription prices and per-unit tariffs onto the same page (``5~DA/SMS'', ``4.99~DA/Mo''), so even after we filter for subscription prices in Python, a budget answer can still drag in tariff-table noise. We cut most of it by skipping any amount glued to a unit (\texttt{/SMS}, \texttt{/Mo}, and so on) and any crédit or bonus figure. Most of it, not all. The route is still the soft spot of the system, and we would rather say so plainly than bury it.}
+\subsection{The Weakest Route: Budget}
+\humantext{The budget route is the weakest part of the system, and the reason is the data, not the routing. Djezzy crams subscription prices and per-unit tariffs onto the same page (``5~DA/SMS'', ``4.99~DA/Mo''), so when a user asks for offers under a budget, a naive price filter can mistake a per-unit tariff for an offer price and let it through. We close most of that gap by skipping any amount glued to a unit (\texttt{/SMS}, \texttt{/Mo}, and so on) and any crédit or bonus figure; with that fix the budget scenario now passes. Most of the noise, not all of it --- a page with an unusual layout could still slip a tariff line past the filter, which is why we still call this route the soft spot of the system and would rather say so plainly than bury it.}
 
 \section{Demonstration}
 \humantext{This section shows the running system. The figures below are placeholders to be replaced with real screenshots of the deployed Gradio app.}
@@ -1634,14 +1636,14 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
     \item \humantext{A \textbf{fully local, open-source voice-and-text stack} (Qwen2.5-7B 4-bit, multilingual-e5, Whisper-medium, Coqui XTTS-v2 on demand) that fits a 15~GB T4 and keeps all subscriber data on-premises.}
 \end{itemize}
 
-\humantext{On \numTestsTotal{} acceptance scenarios across four languages, DjezzyBot passes \textbf{\numTestsPass{}/\numTestsTotal{}} (about 92\,\%), with the single failure being the budget route, whose weakness we trace to the way Djezzy's pages mix subscription prices with per-unit tariffs.}
+\humantext{On \numTestsTotal{} acceptance scenarios across four languages, DjezzyBot passes \textbf{\numTestsPass{}/\numTestsTotal{}} (100\,\%). The budget route passes as well, though it remains the system's weakest point, because Djezzy's pages mix subscription prices with per-unit tariffs.}
 
 \humantext{This work opens several directions for future research and development:}
 \begin{itemize}
     \item \humantext{\textbf{Fine-tuning a dialectal embedder}: training an embedding model on large Algerian Darija corpora to push retrieval quality on dialectal and code-switched queries even further.}
     \item \humantext{\textbf{Information-system integration}: connecting the bot to Djezzy's back-office APIs for personalized, real-time requests (the subscriber's actual balance, activating options directly from the bot).}
     \item \humantext{\textbf{Private-infrastructure deployment}: migrating the local quantized stack to Djezzy's own servers for operational sovereignty and scalability.}
-    \item \humantext{\textbf{Strengthening the budget route}: a cleaner separation of subscription prices from per-unit tariffs in the data, to fix the one remaining failing scenario.}
+    \item \humantext{\textbf{Strengthening the budget route}: a cleaner separation of subscription prices from per-unit tariffs in the data, to harden the system's weakest route against unusual page layouts.}
 \end{itemize}
 
 % --- BIBLIOGRAPHIE ---
