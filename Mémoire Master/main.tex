@@ -1577,22 +1577,18 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 \humantext{The budget route is the weakest part of the system, and the reason is the data, not the routing. Djezzy crams subscription prices and per-unit tariffs onto the same page (``5~DA/SMS'', ``4.99~DA/Mo''), so when a user asks for offers under a budget, a naive price filter can mistake a per-unit tariff for an offer price and let it through. We close most of that gap by skipping any amount glued to a unit (\texttt{/SMS}, \texttt{/Mo}, and so on) and any crédit or bonus figure; with that fix the budget scenario now passes. Most of the noise, not all of it --- a page with an unusual layout could still slip a tariff line past the filter, which is why we still call this route the soft spot of the system and would rather say so plainly than bury it.}
 
 \section{Demonstration}
-\humantext{This section shows the running system. The figures below are placeholders to be replaced with real screenshots of the deployed Gradio app.}
+\humantext{This section shows the running system: screenshots of the deployed Gradio app in use.}
 
 \begin{figure}[H]
 \centering
-\fbox{\begin{minipage}{0.85\textwidth}\centering\vspace{3cm}
-\textit{[Screenshot placeholder: the single-screen Gradio interface --- shared chat window, text box, microphone, spoken-reply player, and status bar, in Djezzy red/white.]}
-\vspace{3cm}\end{minipage}}
+\includegraphics[width=0.85\textwidth]{Images/ui_screenshot.png}
 \caption{The single-screen DjezzyBot interface (text + voice in one conversation)}
 \label{fig:ui_screenshot}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\fbox{\begin{minipage}{0.85\textwidth}\centering\vspace{3cm}
-\textit{[Screenshot placeholder: one real example conversation per language --- French, Arabic, English, and Algerian Darija (answered in Modern Standard Arabic).]}
-\vspace{3cm}\end{minipage}}
+\includegraphics[width=0.85\textwidth]{Images/example_conversations.png}
 \caption{Example conversations, one per language (FR / AR / EN / Darija)}
 \label{fig:example_convos}
 \end{figure}
