@@ -919,20 +919,20 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
 \centering
 \begin{tikzpicture}[
     node distance=0.7cm,
-    step/.style={draw=blue!80, fill=blue!5, rectangle, rounded corners=4pt, minimum width=10.5cm, minimum height=0.8cm, align=center, font=\small, thick},
+    procstep/.style={draw=blue!80, fill=blue!5, rectangle, rounded corners=4pt, minimum width=10.5cm, minimum height=0.8cm, align=center, font=\small, thick},
     cond/.style={draw=orange, fill=orange!10, rectangle, rounded corners=4pt, minimum width=10.5cm, minimum height=0.8cm, align=center, font=\small\bfseries, thick},
     io/.style={draw=teal, fill=teal!10, rectangle, rounded corners=6pt, minimum width=10.5cm, minimum height=0.8cm, align=center, font=\small\bfseries, thick},
     arrow/.style={thick, ->, >=stealth, draw=gray!80}
 ]
 
   \node (in) [io] {User request (text or audio)};
-  \node (stt) [step, below=of in] {1. Speech-to-text (if audio): \textbf{Whisper-medium}};
-  \node (lang) [step, below=of stt] {2. Language detection (fr / ar / en / Darija) --- no translation};
+  \node (stt) [procstep, below=of in] {1. Speech-to-text (if audio): \textbf{Whisper-medium}};
+  \node (lang) [procstep, below=of stt] {2. Language detection (fr / ar / en / Darija) --- no translation};
   \node (fw) [cond, below=of lang] {3. Intent routing (\numRoutes{} routes): \textit{competitor $\rightarrow$ canned refusal (STOP)}};
-  \node (opt) [step, below=of fw] {4. Query expansion (Djezzy synonyms) + offer / roaming / budget detection};
-  \node (ret) [step, below=of opt] {5. Dense FAISS retrieval via the chosen route (+ off-domain guard)};
-  \node (llm) [step, below=of ret] {6. Greedy generation: \textbf{Qwen2.5-7B-Instruct} (\numRules{} prompt rules)};
-  \node (tts) [step, below=of llm] {7. Speech synthesis (if voice): \textbf{Coqui XTTS-v2} (on demand)};
+  \node (opt) [procstep, below=of fw] {4. Query expansion (Djezzy synonyms) + offer / roaming / budget detection};
+  \node (ret) [procstep, below=of opt] {5. Dense FAISS retrieval via the chosen route (+ off-domain guard)};
+  \node (llm) [procstep, below=of ret] {6. Greedy generation: \textbf{Qwen2.5-7B-Instruct} (\numRules{} prompt rules)};
+  \node (tts) [procstep, below=of llm] {7. Speech synthesis (if voice): \textbf{Coqui XTTS-v2} (on demand)};
   \node (out) [io, below=of tts] {Final answer (text and/or audio, in the user's language)};
 
   % Flèches
