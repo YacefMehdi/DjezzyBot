@@ -96,7 +96,7 @@ Source: `python test_scenarios.py` (its printed summary).
 | 01 | "vos offres ?" lists ≥4 offers with prices | fr | catalogue | ✅ (8 offers, 6 prices) |
 | 02 | "j'ai 500 DA" shows only offers ≤500 DA | fr | budget | ✅ (only 500) |
 | 03 | "parle-moi de Campuce" — Campuce only, tiers cheapest-first | fr | named-offer | ✅ (no other gammes) |
-| 04 | "différence Legend / iZZY" — both with prices | fr | named-offer | ✅ |
+| 04 | "différence Legend / iZZY" — both with prices | fr | comparison | ✅ |
 | 05 | roaming France returns roaming, not national | fr | roaming | ✅ |
 | 06 | English query → English reply | en | language | ✅ |
 | 07 | Arabic query → Arabic reply | ar | language | ✅ |
@@ -124,7 +124,8 @@ Source: `python test_scenarios.py` (its printed summary).
 | catalogue | 1 / 1 |
 | budget | 1 / 1 |
 | roaming | 1 / 1 |
-| named-offer | 3 / 3 |
+| named-offer | 2 / 2 |
+| comparison | 1 / 1 |
 | competitor | 1 / 1 |
 | out-of-domain | 1 / 1 |
 | context | 2 / 2 |

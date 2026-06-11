@@ -287,7 +287,7 @@ SCENARIOS = [
     ("01", "catalogue lists >=4 offers+prices", "fr", "catalogue",    t01_catalogue),
     ("02", "budget 500 shows only <=500",       "fr", "budget",       t02_budget),
     ("03", "named Campuce, no mixing",          "fr", "named-offer",  t03_named_campuce),
-    ("04", "comparison Legend vs iZZY",         "fr", "named-offer",  t04_comparison),
+    ("04", "comparison Legend vs iZZY",         "fr", "comparison",   t04_comparison),
     ("05", "roaming France not national",       "fr", "roaming",      t05_roaming),
     ("06", "English query -> English reply",    "en", "language",     t06_english),
     ("07", "Arabic query -> Arabic reply",      "ar", "language",     t07_arabic),

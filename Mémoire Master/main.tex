@@ -1524,7 +1524,7 @@ def voice_answer(audio_path, vector_db, history=None):
 01 & ``vos offres ?'' lists $\ge$4 offers with prices            & fr & catalogue \\
 02 & ``j'ai 500 DA'' shows only offers $\le$500 DA               & fr & budget \\
 03 & ``parle-moi de Campuce'' --- Campuce only, tiers sorted     & fr & named-offer \\
-04 & ``différence Legend / iZZY'' --- both with prices           & fr & named-offer \\
+04 & ``différence Legend / iZZY'' --- both with prices           & fr & comparison \\
 05 & roaming France returns roaming, not national                & fr & roaming \\
 06 & English query $\rightarrow$ English reply                   & en & language \\
 07 & Arabic query $\rightarrow$ Arabic reply                     & ar & language \\
@@ -1572,7 +1572,7 @@ Darija (dz)  & 1 / 1   & detected as dz, answered in MSA \\
 \textbf{Route} & \textbf{Passed / total} & \textbf{Main behavior} \\
 \midrule
 catalogue     & 1 / 1 & lists every family with a starting price \\
-named-offer   & 3 / 3 & one offer, all tiers, cheapest-first \\
+named-offer   & 2 / 2 & one offer, all tiers, cheapest-first \\
 comparison    & 1 / 1 & both offers present, with prices \\
 roaming       & 1 / 1 & foreign tariff, never the national one \\
 language      & 3 / 3 & fr / ar / dz handled correctly \\
@@ -1632,18 +1632,14 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 
 \begin{figure}[H]
 \centering
-\fbox{\begin{minipage}{0.85\textwidth}\centering\vspace{3cm}
-\textit{[Screenshot placeholder: the single-screen Gradio interface --- shared chat window, text box, microphone, spoken-reply player, and status bar.]}
-\vspace{3cm}\end{minipage}}
+\includegraphics[width=0.85\textwidth]{Images/ui_screenshot.jpg}
 \caption{The single-screen DjezzyBot interface (text + voice in one conversation)}
 \label{fig:ui_screenshot}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\fbox{\begin{minipage}{0.85\textwidth}\centering\vspace{3cm}
-\textit{[Screenshot placeholder: one real example conversation per language --- French, Arabic, English, and Algerian Darija.]}
-\vspace{3cm}\end{minipage}}
+\includegraphics[width=0.85\textwidth]{Images/example_conversations.jpg}
 \caption{Example conversations, one per language (FR / AR / EN / Darija)}
 \label{fig:example_convos}
 \end{figure}
