@@ -75,10 +75,11 @@
     }}
 }
 \makeatother
-% --- REVIEW COLOR MACROS (remove before final print) ---
-\newcommand{\sourced}[1]{{\color{blue}#1}}        % fact with citation
-\newcommand{\aitext}[1]{{\color{orange}#1}}       % AI-generated style
-\newcommand{\humantext}[1]{{\color{teal}#1}}      % human/project-specific
+% --- REVIEW COLOR MACROS (neutralized for final print: all text black) ---
+% To bring the review colors back, restore the {\color{...}#1} versions.
+\newcommand{\sourced}[1]{#1}        % fact with citation
+\newcommand{\aitext}[1]{#1}         % AI-generated style
+\newcommand{\humantext}[1]{#1}      % human/project-specific
 % --- VOLATILE FIGURES (update in one place when the system changes) ---
 \newcommand{\numPages}{427}\newcommand{\numArPages}{190}\newcommand{\numPricedPages}{117}
 \newcommand{\numChunks}{769}\newcommand{\numRoutes}{7}\newcommand{\numRules}{11}
