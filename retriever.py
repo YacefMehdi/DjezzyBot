@@ -372,22 +372,31 @@ def _sort_offer_text_by_price(text: str) -> str:
 
 
 def _redact_over_budget(text: str, budget: int) -> str:
-    """Mask any DA amount strictly greater than `budget` in budget-route context.
+    """Drop any LINE that carries a DA amount strictly greater than `budget`.
 
     Even inside an AFFORDABLE offer block, a crédit/bonus figure or a preamble teaser
     can name a sum above the budget ("2 000 DA de crédit"), and the model then re-prints
     it as if it were a purchasable price (the r17 leak: over_in_context=[2000] for a
     600 DA budget). For a budget answer the client only cares about affordable figures,
-    so we replace every >budget amount with a neutral phrase — the model can no longer
-    quote a number it never sees. Amounts <=budget (the real tier prices) are untouched.
+    so we remove the whole offending line. We do NOT substitute placeholder text:
+    an earlier version inserted a French phrase, which destabilised Qwen on Arabic
+    budget prompts (it code-switched to Chinese — the r01 regression). Dropping the
+    line keeps the context in its original language. Lines whose only DA amounts are
+    <=budget (the real tier prices) are kept untouched.
     """
-    def repl(m):
-        try:
-            amt = int(m.group(1).replace(" ", ""))
-        except ValueError:
-            return m.group(0)
-        return m.group(0) if amt <= budget else "un certain montant"
-    return _PRICE_RE.sub(repl, text)
+    out = []
+    for line in text.split("\n"):
+        over = False
+        for m in _PRICE_RE.finditer(line):
+            try:
+                if int(m.group(1).replace(" ", "")) > budget:
+                    over = True
+                    break
+            except ValueError:
+                continue
+        if not over:
+            out.append(line)
+    return "\n".join(out)
 
 
 def _filter_offer_text_by_budget(text: str, budget: int):
