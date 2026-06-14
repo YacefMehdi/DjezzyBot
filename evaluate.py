@@ -55,43 +55,53 @@ D = [
     dict(q="Quelles sont vos offres ?", lang="fr", route="catalogue", offer=None, ood=False),
     dict(q="Montrez-moi tous vos forfaits disponibles", lang="fr", route="catalogue", offer=None, ood=False),
     dict(q="شنو هي العروض المتوفرة عندكم؟", lang="ar", route="catalogue", offer=None, ood=False),
+    dict(q="ما هي عروضكم؟", lang="ar", route="catalogue", offer=None, ood=False),
     dict(q="What offers do you have?", lang="en", route="catalogue", offer=None, ood=False),
     # --- named offer ---
     dict(q="Parle-moi de l'offre Legend", lang="fr", route="named", offer="legend", ood=False),
-    dict(q="Parle-moi de l'offre Campuce", lang="fr", route="named", offer="campuce", ood=False),
-    dict(q="Parle-moi de l'offre Zid", lang="fr", route="named", offer="zid", ood=False),
-    dict(q="C'est quoi l'offre Confort ?", lang="fr", route="named", offer="confort", ood=False),
+    dict(q="Quels sont les montants Flexy disponibles ?", lang="fr", route="named", offer="flexy", ood=False),
     dict(q="قولي على عرض ليجند بالتفصيل", lang="ar", route="named", offer="legend", ood=False),
+    dict(q="أعطني تفاصيل عرض كونفور", lang="ar", route="named", offer="confort", ood=False),
+    dict(q="وش هو عرض إيزي؟", lang="ar", route="named", offer="izzy", ood=False),
     dict(q="ch7al izzy ?", lang="dz", route="named", offer="izzy", ood=False),
-    dict(q="chhal taman izzy ?", lang="dz", route="named", offer="izzy", ood=False),
+    dict(q="bghit n3ref 3la confort", lang="dz", route="named", offer="confort", ood=False),
+    dict(q="wesh kayen f zid ?", lang="dz", route="named", offer="zid", ood=False),
     dict(q="Tell me about the Legend offer", lang="en", route="named", offer="legend", ood=False),
+    dict(q="How much is iZZY?", lang="en", route="named", offer="izzy", ood=False),
+    dict(q="What is the Campuce offer?", lang="en", route="named", offer="campuce", ood=False),
     # --- comparison ---
     dict(q="Quelle est la différence entre Legend et iZZY ?", lang="fr", route="comparison", offer="legend", ood=False),
     dict(q="Compare Legend et Confort", lang="fr", route="comparison", offer="confort", ood=False),
+    dict(q="ما الفرق بين ليجند وإيزي؟", lang="ar", route="comparison", offer="legend", ood=False),
     # --- budget ---
     dict(q="j'ai 500 DA, qu'est-ce que vous proposez ?", lang="fr", route="budget", offer=None, ood=False),
     dict(q="j'ai seulement 200 DA, quelles offres ?", lang="fr", route="budget", offer=None, ood=False),
     dict(q="عندي 1000 دينار، شنو تنصحوني؟", lang="ar", route="budget", offer=None, ood=False),
-    dict(q="I have only 300 DA, what can I get?", lang="en", route="budget", offer=None, ood=False),
+    dict(q="عندي 300 دج، واش ناخذ؟", lang="ar", route="budget", offer=None, ood=False),
     dict(q="3andi 500 da, wach nakhou ?", lang="dz", route="budget", offer=None, ood=False),
+    dict(q="I have only 300 DA, what can I get?", lang="en", route="budget", offer=None, ood=False),
     # --- roaming ---
     dict(q="je voyage en France, quel roaming ?", lang="fr", route="roaming", offer=None, ood=False),
-    dict(q="بغيت رومينغ باش نروح للحج", lang="ar", route="roaming", offer=None, ood=False),
-    dict(q="bghit roaming l france", lang="dz", route="roaming", offer=None, ood=False),
     dict(q="quel forfait roaming pour la Tunisie ?", lang="fr", route="roaming", offer=None, ood=False),
+    dict(q="بغيت رومينغ باش نروح للحج", lang="ar", route="roaming", offer=None, ood=False),
+    dict(q="كم سعر الرومينغ في العمرة؟", lang="ar", route="roaming", offer=None, ood=False),
+    dict(q="bghit roaming l france", lang="dz", route="roaming", offer=None, ood=False),
     # --- competitor (must refuse) ---
     dict(q="C'est quoi les offres de Ooredoo ?", lang="fr", route="competitor", offer=None, ood=False),
-    dict(q="Les forfaits Mobilis sont mieux ?", lang="fr", route="competitor", offer=None, ood=False),
     dict(q="واش هي عروض أوريدو؟", lang="ar", route="competitor", offer=None, ood=False),
+    dict(q="wesh ra2yek f ooredoo ?", lang="dz", route="competitor", offer=None, ood=False),
+    dict(q="What are Ooredoo's offers?", lang="en", route="competitor", offer=None, ood=False),
     # --- normal in-domain (price follow-up / generic telecom) ---
-    dict(q="C'est combien le forfait le moins cher ?", lang="fr", route="normal", offer=None, ood=False),
     dict(q="Comment activer ma carte SIM ?", lang="fr", route="normal", offer=None, ood=False),
+    dict(q="كيف أفعّل شريحتي؟", lang="ar", route="normal", offer=None, ood=False),
+    dict(q="kifash ndir recharge ?", lang="dz", route="normal", offer=None, ood=False),
+    dict(q="How do I activate my SIM card?", lang="en", route="normal", offer=None, ood=False),
     # --- out-of-domain (route=normal, but must be refused) ---
-    dict(q="Quelle est la météo à Alger demain ?", lang="fr", route="normal", offer=None, ood=True),
-    dict(q="What's the weather in Algiers tomorrow?", lang="en", route="normal", offer=None, ood=True),
-    dict(q="Raconte-moi une blague", lang="fr", route="normal", offer=None, ood=True),
     dict(q="Combien font 24 fois 7 ?", lang="fr", route="normal", offer=None, ood=True),
     dict(q="ما هي عاصمة فرنسا؟", lang="ar", route="normal", offer=None, ood=True),
+    dict(q="ch7al men sa3a daba ?", lang="dz", route="normal", offer=None, ood=True),
+    dict(q="What's the weather in Algiers tomorrow?", lang="en", route="normal", offer=None, ood=True),
+    dict(q="Tell me a joke", lang="en", route="normal", offer=None, ood=True),
 ]
 
 
@@ -154,25 +164,47 @@ def eval_routing():
     return _prf(pairs), _confusion(pairs)
 
 
-def eval_ood():
-    """Binary: is the query out-of-domain? Predicted OOD = the no-context refusal.
+_DECLINE_PHRASES = (
+    "désolé", "desole", "ne peux pas", "ne peut pas", "hors", "uniquement djezzy",
+    "que sur djezzy", "assistant virtuel de djezzy", "ne concerne pas",
+    "i can't", "i cannot", "only djezzy", "djezzy's", "i'm djezzy",
+    "لا أستطيع", "لا يمكنني", "خارج", "فقط على", "مساعد جيزي", "عذرا",
+)
 
-    classify_route can't see retrieval confidence, so the true OOD decision lives
-    in smart_retrieve's NORMAL branch. Here we approximate the *router-visible*
-    part: a query is predicted in-domain if it carries a telecom signal or names an
-    offer; predicted OOD otherwise. The full picture (score gate + LLM rule) needs
-    the index and is measured end-to-end in eval_retrieval/groundedness.
+
+def _is_refusal(text: str, route: str) -> bool:
+    """Heuristic: did the system decline rather than answer the question?
+
+    A refusal is either a short-circuit (competitor / no-context route) or an LLM
+    answer that uses a decline phrase and offers no real content. Used only to score
+    the OOD metric, where the gold label is known."""
+    if route in ("competitor", "no_context"):
+        return True
+    t = text.lower()
+    return any(p in t for p in _DECLINE_PHRASES)
+
+
+def eval_ood(vector_db):
+    """End-to-end OOD detection (the REAL two-layer guard: score gate + the LLM's
+    domain rule), so it needs the index AND the LLM — there is no honest local proxy,
+    because by design the score floor rarely fires and the LLM is the actual judge.
+
+    For each non-competitor query we run the full pipeline and check whether it
+    refused. Off-domain queries SHOULD be refused; real ones should be answered. The
+    headline is the false-refusal rate — a real customer must never be turned away.
+    Competitor queries are excluded (a separate, in-domain refusal scored by routing).
     """
+    items = [d for d in D if d["route"] != "competitor"]
     pairs = []
-    for d in D:
-        pred_ood = not lexicon.has_telecom_signal(d["q"])
-        pairs.append(("ood" if d["ood"] else "in", "ood" if pred_ood else "in"))
-    res = _prf(pairs)
-    # false-refusal rate = in-domain queries wrongly predicted OOD
+    for d in items:
+        res = bot.generate_answer(d["q"], d["lang"], vector_db)
+        refused = _is_refusal(res["text"], res["route"])
+        pairs.append(("ood" if d["ood"] else "in", "ood" if refused else "in"))
+    out = _prf(pairs)
     fr_denom = sum(1 for g, _ in pairs if g == "in")
     false_refusals = sum(1 for g, p in pairs if g == "in" and p == "ood")
-    res["false_refusal_rate"] = round(false_refusals / fr_denom, 3) if fr_denom else 0.0
-    return res, _confusion(pairs)
+    out["false_refusal_rate"] = round(false_refusals / fr_denom, 3) if fr_denom else 0.0
+    return out, _confusion(pairs)
 
 
 # ===========================================================================
@@ -265,27 +297,28 @@ def run_all(vector_db=None, with_llm=True):
     _print_confusion("2. Intent routing", route_cm)
     results["routing"] = route_res
 
-    ood_res, ood_cm = eval_ood()
-    _print_prf("3. OOD / competitor (router-visible)", ood_res)
-    print(f"  false-refusal rate (in-domain wrongly refused) = {ood_res['false_refusal_rate']}")
-    results["ood"] = ood_res
-
     if vector_db is not None:
         ret = eval_retrieval(vector_db)
-        print("\n### 4. Retrieval recall@k — router vs pure-dense baseline")
+        print("\n### 3. Retrieval recall@k — router vs pure-dense baseline")
         for k in (1, 5):
             print(f"  recall@{k}: router={ret['router'][f'recall@{k}']}  "
                   f"baseline_dense={ret['baseline_dense'][f'recall@{k}']}")
         results["retrieval"] = ret
 
         if with_llm:
+            ood_res, ood_cm = eval_ood(vector_db)
+            _print_prf("4. Out-of-domain (end-to-end: score gate + LLM rule)", ood_res)
+            _print_confusion("4. Out-of-domain", ood_cm)
+            print(f"  false-refusal rate (real query wrongly refused) = {ood_res['false_refusal_rate']}")
+            results["ood"] = ood_res
+
             gr = eval_groundedness(vector_db)
             print(f"\n### 5. Answer groundedness = {gr['groundedness']} "
                   f"({gr['prices_checked']} prices checked over {gr['answered']} answers)")
             results["groundedness"] = gr
     else:
-        print("\n[index not available — retrieval and groundedness skipped; "
-              "run on Colab with the built FAISS index for sections 4–5]")
+        print("\n[index/LLM not available — sections 3–5 (retrieval, OOD, groundedness) "
+              "need the built FAISS index on Colab; classification metrics above are final]")
 
     return results
 

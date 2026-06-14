@@ -26,11 +26,12 @@ import unicodedata
 # Used for: catalogue enumeration, named-offer detection, comparison detection.
 # Order matters for detection: multi-word / more-specific names come first so
 # "legend max" is matched before the bare "legend".
-# The real prepaid/postpaid FORFAIT gammes (verified against the live crawl).
-# Deliberately NOT including generic words like "carte" (carte SIM), "control"
-# (the parental-control SERVICE, not a forfait) or bare "flexy" (a recharge
-# service) — those caused false catalogue matches. Services and phones are their
-# own content types (see SERVICE_TERMS / DEVICE_TERMS) reachable via normal search.
+# The real prepaid/postpaid FORFAIT gammes + the Flexy credit service (verified
+# against the live crawl). "Flexy" is included because it is an everyday term in
+# Algeria (topping up / transferring credit) that subscribers ask about by name;
+# it is ordered AFTER "flexy net" so the more specific name matches first.
+# Still deliberately NOT including generic words like "carte" (carte SIM) or
+# "control" (the parental-control SERVICE) — those caused false catalogue matches.
 OFFER_NAMES = [
     "legend max",
     "legend pro",
@@ -43,6 +44,7 @@ OFFER_NAMES = [
     "3ayla",
     "facebook flex",
     "flexy net",
+    "flexy",
     "djezzy 5g",
 ]
 
