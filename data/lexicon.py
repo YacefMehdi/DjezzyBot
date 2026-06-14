@@ -222,6 +222,10 @@ DARIJA_WORDS = {
     "wesh", "wech", "win", "3andi", "andi", "3tini", "3la", "eddir", "ndir",
     "khlass", "sahbi", "khoya", "mlih", "labas", "wahed", "zouj", "hadi",
     "hada", "ki", "rani", "raki", "wash", "chwiya", "daba",
+    # Arabizi spellings using digits for Arabic letters (7=ح, 9=ق, 3=ع): the
+    # "how much" word is commonly typed "ch7al"/"che7al"/"ch9al", which the plain
+    # "chhal" entry missed -> the question was misdetected as French.
+    "ch7al", "che7al", "ch9al", "ch7all", "kch7al",
 }
 
 # ---------------------------------------------------------------------------
