@@ -30,43 +30,87 @@ from retriever import smart_retrieve, _chunk_price
 logger = logging.getLogger("djezzybot.tests")
 
 _PRICE_RE = retriever._PRICE_RE
+_RATE_AFTER_RE = retriever._RATE_AFTER_RE
 _ARABIC_RE = re.compile(r"[؀-ۿ]")
 _LATIN_RE = re.compile(r"[A-Za-z]")
+
+# Arabic-Indic digits -> ASCII, so an Arabic answer's "٥٠٠ دج" is read like "500 da".
+_ARAB_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+# Multilingual price token: a number followed by a dinar marker in Latin OR Arabic
+# (DA / dinars / DZD / دج / د.ج / دينار / دنانير). The Latin-only regex used to read
+# zero prices out of an Arabic answer, which failed Arabic budget/named tests even
+# though the system answered correctly.
+_PRICE_RE_ML = re.compile(
+    r"(\d[\d\s]{0,7}\d|\d)\s*(?:da|dinars?|dzd|دج|د\.?ج|دينار|دنانير)\b", re.IGNORECASE)
 
 
 # ===========================================================================
 # small assertion helpers
 # ===========================================================================
-def _prices(text: str):
+def _da_amounts(text: str):
+    """Return [(amount, start, end)] for every DA/dinar price in `text` (fr OR ar),
+    skipping per-unit rates ('5 DA/SMS'). Arabic-Indic digits are normalized first.
+    The returned offsets are into the normalized lowercase string `_da_norm` below."""
+    t = text.translate(_ARAB_DIGITS).lower()
     out = []
-    for m in _PRICE_RE.finditer(text.lower()):
+    for m in _PRICE_RE_ML.finditer(t):
+        if _RATE_AFTER_RE.match(t, m.end()):
+            continue                                  # per-unit rate, not a price
         try:
-            out.append(int(m.group(1).replace(" ", "")))
+            out.append((int(m.group(1).replace(" ", "")), m.start(), m.end(), t))
         except ValueError:
             pass
     return out
 
 
-_CREDIT_WORDS_T = ("credit", "crédit", "crèdit", "recharge", "bonus", "cadeau", "offert")
+def _prices(text: str):
+    """Every offer/price DA amount in `text` (multilingual, per-unit rates excluded)."""
+    return [a for a, _, _, _ in _da_amounts(text)]
+
+
+# Included-value words (the amount is bonus/credit/gift, not the subscription PRICE),
+# in French, English and Arabic.
+_CREDIT_WORDS_T = ("credit", "crédit", "crèdit", "recharge", "bonus", "cadeau", "offert",
+                   "gratuit", "de credit", "of credit", "رصيد", "هدية", "مجان", "إضافي", "اضافي")
 
 
 def _offer_prices(text: str):
-    """DA amounts in `text` that are offer PRICES (excluding crédit/bonus amounts).
+    """DA amounts that are offer PRICES (excluding crédit/bonus/gift amounts).
 
-    A budget answer may legitimately mention "400 DA avec 2000 DA de crédit"; the
-    2000 is included value, not a price, so it must not count against the budget.
+    A budget answer may legitimately say "400 DA avec 2000 DA de crédit" (FR, label
+    after) or "... رصيد 2000 دج" (AR, label before); the 2000 is included value, not a
+    price. We tag an amount as credit only when a credit word is the NEAREST token to
+    it (within ~20 chars) — so the label claims its own amount, not a neighbour. This
+    avoids the window bug where a credit word leaked onto the previous, real price.
     """
-    t = text.lower()
-    out = []
-    for m in _PRICE_RE.finditer(t):
-        window = t[max(0, m.start() - 25): m.end() + 25]
-        if any(w in window for w in _CREDIT_WORDS_T):
-            continue
-        try:
-            out.append(int(m.group(1).replace(" ", "")))
-        except ValueError:
-            pass
-    return out
+    amts = _da_amounts(text)
+    if not amts:
+        return []
+    t = amts[0][3]
+    marked = set()
+    for w in _CREDIT_WORDS_T:
+        start = 0
+        while True:
+            cp = t.find(w, start)
+            if cp == -1:
+                break
+            start = cp + 1
+            best, bestd = None, 999
+            for i, (_, s, e, _) in enumerate(amts):
+                d = min(abs(s - cp), abs(e - cp))
+                if d < bestd:
+                    best, bestd = i, d
+            if best is not None and bestd <= 20:
+                marked.add(best)
+    return [a for i, (a, _, _, _) in enumerate(amts) if i not in marked]
+
+
+def _ascending_prices(text: str):
+    """The offer prices in their order of appearance, de-duplicated of immediate
+    repeats — for checking a multi-tier answer lists tiers cheapest-first."""
+    seq = _offer_prices(text)
+    dedup = [p for i, p in enumerate(seq) if i == 0 or p != seq[i - 1]]
+    return dedup
 
 
 def _count_offer_mentions(text: str) -> int:

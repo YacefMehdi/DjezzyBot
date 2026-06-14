@@ -72,7 +72,7 @@ def r01_budget_arabic(idx):
     r = bot.answer("عندي 1000 دينار، شنو تنصحوني؟", idx)
     op = _offer_prices(r["text"])
     ok = _is_mostly_arabic(r["text"]) and len(op) > 0 and all(p <= budget for p in op)
-    return ok, f"lang={r['lang']} route={r['route']} offer_prices={op}"
+    return ok, f"lang={r['lang']} route={r['route']} offer_prices={op} :: {r['text'][:70]}"
 
 
 def r02_named_arabic(idx):
@@ -80,7 +80,7 @@ def r02_named_arabic(idx):
     r = bot.answer("قولي على عرض ليجند بالتفصيل", idx)
     t = r["text"].lower()
     ok = "legend" in t and _is_mostly_arabic(r["text"]) and len(_prices(r["text"])) >= 1
-    return ok, f"lang={r['lang']} legend={'legend' in t} prices={_prices(r['text'])}"
+    return ok, f"lang={r['lang']} legend={'legend' in t} prices={_prices(r['text'])} :: {r['text'][:70]}"
 
 
 def r03_catalogue_arabic(idx):
@@ -110,14 +110,17 @@ def r05_roaming_hajj_arabic(idx):
 
 
 def r06_ood_english(idx):
-    """Out-of-domain in English (weather) -> declined, no real weather."""
+    """Out-of-domain in English (weather) -> declined, no actual weather DATA.
+
+    A polite refusal legitimately contains the WORD 'weather'/'forecast' ('I can't
+    give you the weather...'), so flagging those words is wrong. A real weather answer
+    instead contains a TEMPERATURE reading — a number next to degrees. We check for
+    that, plus that the bot didn't leave its domain."""
     r = bot.answer("What's the weather in Algiers tomorrow?", idx)
     is_decline = r["route"] in ("no_context", "normal")
-    low = r["text"].lower()
-    weather = ("°", "degree", "celsius", "sunny", "rain", "cloud", "wind", "humidity",
-               "forecast", "temperature")
-    ok = is_decline and not any(w in low for w in weather)
-    return ok, f"route={r['route']}"
+    gave_temp = re.search(r"\d+\s*(°|deg|celsius|fahrenheit|درجة)", r["text"].lower()) is not None
+    ok = is_decline and not gave_temp
+    return ok, f"route={r['route']} gave_temp={gave_temp} :: {r['text'][:80]}"
 
 
 # ===========================================================================
@@ -135,16 +138,31 @@ def r07_mobilis_allow_case(idx):
     return ok, f"route={r['route']} (must NOT be competitor)"
 
 
-def r08_named_tiers_ascending(idx):
-    """Cam Puce's tiers must come back cheapest-first (ascending), not just present.
+def _first_mentions(text):
+    """Offer prices in order of FIRST appearance (credit/rate excluded, deduped).
 
-    Tests the deterministic ordering contribution at the ANSWER level: the offer
-    prices that appear should be in non-decreasing order.
-    """
+    Robust to a trailing recap: if the answer lists tiers cheapest-first then repeats
+    a summary, the FIRST mention of each distinct price still reflects the listing
+    order, so an ascending check is not fooled by the recap."""
+    seq = _offer_prices(text)
+    seen, first = set(), []
+    for p in seq:
+        if p not in seen:
+            seen.add(p); first.append(p)
+    return first
+
+
+def r08_named_tiers_ascending(idx):
+    """Cam Puce returns its many tiers, cheapest-first.
+
+    Two things at once: COMPLETENESS (several distinct tier prices present -- the old
+    '5 of 7 tiers' bug) and ORDER (first-mention sequence is ascending -- the
+    deterministic cheapest-first contribution), measured on first mentions so a recap
+    can't break it."""
     r = bot.answer("Donne-moi tous les paliers de l'offre Cam Puce avec leurs prix", idx)
-    pr = _prices(r["text"])
-    ok = len(pr) >= 2 and _ascending(pr)
-    return ok, f"prices={pr} ascending={_ascending(pr) if pr else None}"
+    fm = _first_mentions(r["text"])
+    ok = len(fm) >= 4 and _ascending(fm)
+    return ok, f"first_mentions={fm} :: {r['text'][:70]}"
 
 
 def r09_nonexistent_offer(idx):
@@ -190,7 +208,7 @@ def r12_budget_other_ceiling(idx):
     r = bot.answer("j'ai seulement 200 DA, quelles offres ?", idx)
     op = _offer_prices(r["text"])
     ok = len(op) > 0 and all(p <= budget for p in op)
-    return ok, f"route={r['route']} offer_prices={op}"
+    return ok, f"route={r['route']} offer_prices={op} :: {r['text'][:90]}"
 
 
 def r13_budget_no_rate_leak(idx):
@@ -211,7 +229,7 @@ def r14_budget_impossible(idx):
     r = bot.answer("j'ai 10 DA, qu'est-ce que je peux avoir ?", idx)
     op = _offer_prices(r["text"])
     ok = all(p <= budget for p in op)        # ideally empty or a graceful 'nothing fits'
-    return ok, f"route={r['route']} offer_prices={op}"
+    return ok, f"route={r['route']} offer_prices={op} :: {r['text'][:90]}"
 
 
 # ===========================================================================
@@ -228,11 +246,90 @@ def r15_named_zid(idx):
 
 
 def r16_multitier_ascending(idx):
-    """A multi-tier offer (Flexy) returns its tiers cheapest-first (ascending)."""
+    """A multi-tier offer (Flexy) returns its amounts cheapest-first (first-mention)."""
     r = bot.answer("Quels sont les montants Flexy disponibles ?", idx)
-    pr = _prices(r["text"])
-    ok = len(pr) >= 2 and _ascending(pr)
-    return ok, f"prices={pr} ascending={_ascending(pr) if pr else None}"
+    fm = _first_mentions(r["text"])
+    ok = len(fm) >= 2 and _ascending(fm)
+    return ok, f"first_mentions={fm} :: {r['text'][:70]}"
+
+
+# ===========================================================================
+# Group E — added coverage (more languages x routes; more OOD; completeness)
+# ===========================================================================
+def r17_budget_english(idx):
+    """Budget intent in English: only offers <= budget in the answer."""
+    r = bot.answer("I have 600 DA, what offers can I get?", idx)
+    op = _offer_prices(r["text"])
+    ok = len(op) > 0 and all(p <= 600 for p in op)
+    return ok, f"route={r['route']} offer_prices={op} :: {r['text'][:70]}"
+
+
+def r18_named_english(idx):
+    """Named offer asked in English (Legend) -> Legend, with a price."""
+    r = bot.answer("Tell me everything about the Legend offer", idx)
+    t = r["text"].lower()
+    ok = "legend" in t and len(_prices(r["text"])) >= 1
+    return ok, f"legend={'legend' in t} prices={_prices(r['text'])}"
+
+
+def r19_comparison_arabic(idx):
+    """Comparison asked in Arabic (Legend vs iZZY) -> both present, Arabic reply."""
+    r = bot.answer("ما الفرق بين ليجند وإيزي؟", idx)
+    t = r["text"].lower()
+    ok = "legend" in t and "izzy" in t and _is_mostly_arabic(r["text"])
+    return ok, f"legend={'legend' in t} izzy={'izzy' in t} ar={_is_mostly_arabic(r['text'])}"
+
+
+def r20_ood_arabic(idx):
+    """Out-of-domain in Arabic (capital of France) -> must not answer 'Paris'."""
+    r = bot.answer("ما هي عاصمة فرنسا؟", idx)
+    low = r["text"].lower()
+    ok = "باريس" not in r["text"] and "paris" not in low
+    return ok, f"route={r['route']} :: {r['text'][:70]}"
+
+
+def r21_ood_darija(idx):
+    """Out-of-domain in Darija (the time) -> must not give a clock time."""
+    r = bot.answer("ch7al men sa3a daba ?", idx)
+    gave_time = re.search(r"\d{1,2}\s*[:hH]\s*\d", r["text"]) is not None
+    ok = not gave_time
+    return ok, f"route={r['route']} gave_time={gave_time} :: {r['text'][:70]}"
+
+
+def r22_catalogue_french(idx):
+    """Catalogue in French -> >= 4 offers with prices."""
+    r = bot.answer("Quelles sont toutes vos offres ?", idx)
+    n_off, n_pr = _count_offer_mentions(r["text"]), len(_prices(r["text"]))
+    ok = n_off >= 4 and n_pr >= 4
+    return ok, f"offers={n_off} prices={n_pr}"
+
+
+def r23_named_confort(idx):
+    """Named offer Confort -> Confort, no other gamme mixed in."""
+    r = bot.answer("Parle-moi de l'offre Confort", idx)
+    t = r["text"].lower()
+    others = _others_present(t, "confort")
+    ok = "confort" in t and not others
+    return ok, f"confort={'confort' in t} other_gammes={others}"
+
+
+def r24_budget_darija(idx):
+    """Budget intent in Darija -> only offers <= budget."""
+    r = bot.answer("3andi 300 da, wesh tabbi taqtarho 3liya ?", idx)
+    op = _offer_prices(r["text"])
+    ok = len(op) > 0 and all(p <= 300 for p in op)
+    return ok, f"route={r['route']} offer_prices={op} :: {r['text'][:60]}"
+
+
+def r25_roaming_tunisia(idx):
+    """Roaming Tunisia (French) -> roaming context, not the national tariff."""
+    docs = smart_retrieve("quel forfait roaming pour la Tunisie ?", "fr", idx)
+    if docs == config.COMPETITOR_SENTINEL:
+        return False, "unexpected competitor route"
+    blob = " ".join(d.page_content.lower() + " " +
+                    d.metadata.get("source_url", "").lower() for d in docs)
+    ok = "roaming" in blob or "tunis" in blob
+    return ok, f"roaming_ctx={'roaming' in blob} n_docs={len(docs)}"
 
 
 SCENARIOS = [
@@ -256,6 +353,16 @@ SCENARIOS = [
     # Group D — named-offer breadth
     ("r15", "named offer Zid, no mixing",         "fr", "named-offer",  r15_named_zid),
     ("r16", "Flexy multi-tier ascending",         "fr", "named-offer",  r16_multitier_ascending),
+    # Group E — added coverage
+    ("r17", "budget intent in English",           "en", "budget",       r17_budget_english),
+    ("r18", "named offer in English (Legend)",    "en", "named-offer",  r18_named_english),
+    ("r19", "comparison in Arabic (Legend/iZZY)", "ar", "comparison",   r19_comparison_arabic),
+    ("r20", "out-of-domain in Arabic",            "ar", "out-of-domain", r20_ood_arabic),
+    ("r21", "out-of-domain in Darija",            "dz", "out-of-domain", r21_ood_darija),
+    ("r22", "catalogue in French",                "fr", "catalogue",    r22_catalogue_french),
+    ("r23", "named offer Confort, no mixing",     "fr", "named-offer",  r23_named_confort),
+    ("r24", "budget intent in Darija",            "dz", "budget",       r24_budget_darija),
+    ("r25", "roaming Tunisia (French)",           "fr", "roaming",      r25_roaming_tunisia),
 ]
 
 

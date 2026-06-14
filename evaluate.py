@@ -184,17 +184,20 @@ def _is_refusal(text: str, route: str) -> bool:
     return any(p in t for p in _DECLINE_PHRASES)
 
 
-def eval_ood(vector_db):
+def eval_ood(vector_db, cap=16):
     """End-to-end OOD detection (the REAL two-layer guard: score gate + the LLM's
     domain rule), so it needs the index AND the LLM — there is no honest local proxy,
     because by design the score floor rarely fires and the LLM is the actual judge.
 
-    For each non-competitor query we run the full pipeline and check whether it
-    refused. Off-domain queries SHOULD be refused; real ones should be answered. The
-    headline is the false-refusal rate — a real customer must never be turned away.
-    Competitor queries are excluded (a separate, in-domain refusal scored by routing).
+    For each query we run the full pipeline and check whether it refused. Off-domain
+    queries SHOULD be refused; real ones should be answered. The headline is the
+    false-refusal rate — a real customer must never be turned away. Competitor queries
+    are excluded (a separate, in-domain refusal scored by routing). Capped at `cap`
+    generations (all OOD + a sample of in-domain) so the LLM pass stays a few minutes.
     """
-    items = [d for d in D if d["route"] != "competitor"]
+    oods = [d for d in D if d["ood"]]
+    ins = [d for d in D if not d["ood"] and d["route"] != "competitor"]
+    items = oods + ins[:max(0, cap - len(oods))]
     pairs = []
     for d in items:
         res = bot.generate_answer(d["q"], d["lang"], vector_db)
@@ -312,7 +315,7 @@ def run_all(vector_db=None, with_llm=True):
             print(f"  false-refusal rate (real query wrongly refused) = {ood_res['false_refusal_rate']}")
             results["ood"] = ood_res
 
-            gr = eval_groundedness(vector_db)
+            gr = eval_groundedness(vector_db, subset=12)
             print(f"\n### 5. Answer groundedness = {gr['groundedness']} "
                   f"({gr['prices_checked']} prices checked over {gr['answered']} answers)")
             results["groundedness"] = gr
