@@ -182,11 +182,17 @@ _DECLINE_PHRASES = (
 def _is_refusal(text: str, route: str) -> bool:
     """Heuristic: did the system decline rather than answer the question?
 
-    A refusal is either a short-circuit (competitor / no-context route) or an LLM
-    answer that uses a decline phrase and offers no real content. Used only to score
-    the OOD metric, where the gold label is known."""
+    A refusal is a short-circuit route (competitor / no-context / out-of-domain). The
+    CONTENT routes (named / budget / catalogue / comparison / roaming) always produced
+    a real answer, so they are never refusals — checking decline PHRASES on them gave
+    false positives, e.g. a Legend answer saying "appels illimités uniquement vers
+    Djezzy" tripped the "uniquement djezzy" phrase. Only the catch-all NORMAL route can
+    verbally decline despite reaching generation, so the phrase heuristic is limited to
+    it. Used only to score the OOD metric, where the gold label is known."""
     if route in ("competitor", "no_context", "out_of_domain"):
         return True
+    if route != "normal":
+        return False                      # a content route answered → not a refusal
     t = text.lower()
     return any(p in t for p in _DECLINE_PHRASES)
 

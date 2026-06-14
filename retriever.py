@@ -371,14 +371,34 @@ def _sort_offer_text_by_price(text: str) -> str:
     return "\n".join(t for t in ordered if t.strip())
 
 
+def _redact_over_budget(text: str, budget: int) -> str:
+    """Mask any DA amount strictly greater than `budget` in budget-route context.
+
+    Even inside an AFFORDABLE offer block, a crédit/bonus figure or a preamble teaser
+    can name a sum above the budget ("2 000 DA de crédit"), and the model then re-prints
+    it as if it were a purchasable price (the r17 leak: over_in_context=[2000] for a
+    600 DA budget). For a budget answer the client only cares about affordable figures,
+    so we replace every >budget amount with a neutral phrase — the model can no longer
+    quote a number it never sees. Amounts <=budget (the real tier prices) are untouched.
+    """
+    def repl(m):
+        try:
+            amt = int(m.group(1).replace(" ", ""))
+        except ValueError:
+            return m.group(0)
+        return m.group(0) if amt <= budget else "un certain montant"
+    return _PRICE_RE.sub(repl, text)
+
+
 def _filter_offer_text_by_budget(text: str, budget: int):
     """Return (filtered_text, cheapest_kept_price) keeping only <=budget offers.
 
     Splits the chunk into offer blocks at tier-price boundaries, keeps the leading
     preamble plus every block whose tier price is <= budget, and drops blocks
     priced above budget. Crédit/bonus DA amounts stay inside their block (they're
-    not boundaries), so an affordable offer keeps its full details. Returns
-    cheapest_kept_price = None when the chunk has no affordable tier at all.
+    not boundaries) but any amount ABOVE the budget is then redacted, so an affordable
+    offer keeps its full details without leaking an over-budget figure into the answer.
+    Returns cheapest_kept_price = None when the chunk has no affordable tier at all.
     """
     blocks = _split_offer_blocks(text)
     preamble, kept = [], []                         # kept: (price, block_text)
@@ -392,7 +412,8 @@ def _filter_offer_text_by_budget(text: str, budget: int):
         return "", None
     kept.sort(key=lambda x: x[0])                   # cheapest-first, like every route
     ordered = preamble + [t for _, t in kept]
-    return "\n".join(t for t in ordered if t.strip()), kept[0][0]
+    text_out = "\n".join(t for t in ordered if t.strip())
+    return _redact_over_budget(text_out, budget), kept[0][0]
 
 
 def _filter_by_budget_python(docs: list, budget: int) -> list:
