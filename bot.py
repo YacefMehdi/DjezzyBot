@@ -330,21 +330,82 @@ def build_prompt(question: str, context: str, lang: str, history: list,
 # ===========================================================================
 # Generation
 # ===========================================================================
-def _generate(prompt: str) -> str:
-    """Greedy generation (do_sample=False). Returns the decoded answer text."""
+def _generate_n(prompt: str, max_new_tokens: int) -> str:
+    """Greedy generation (do_sample=False), capped at `max_new_tokens`."""
     import torch
     model, tokenizer = load_llm()
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     with torch.no_grad():
         out = model.generate(
             **inputs,
-            max_new_tokens=config.MAX_NEW_TOKENS,
+            max_new_tokens=max_new_tokens,
             do_sample=config.DO_SAMPLE,
             repetition_penalty=config.REPETITION_PENALTY,
             pad_token_id=tokenizer.eos_token_id,
         )
     gen = out[0][inputs["input_ids"].shape[1]:]
     return tokenizer.decode(gen, skip_special_tokens=True).strip()
+
+
+def _generate(prompt: str) -> str:
+    """Greedy generation of a full answer (do_sample=False)."""
+    return _generate_n(prompt, config.MAX_NEW_TOKENS)
+
+
+# ===========================================================================
+# Out-of-domain DOMAIN GATE — a dedicated binary classifier (LLM-as-judge)
+# ===========================================================================
+# Why a separate call instead of trusting rule 1: in the full generation the model
+# juggles 11 rules + retrieved context that LOOKS usable + formatting + language, so
+# the one-line refusal rule gets crowded out and OOD questions slip through (measured
+# OOD recall ~0.20 with the inline rule alone). A FOCUSED yes/no prompt — no context,
+# no other rules, nothing to format — turns refusal into a pure classification, which
+# the same model does far more reliably. This is the second layer of the OOD guard
+# (the first is retriever._is_out_of_domain's similarity floor); only the catch-all
+# NORMAL route is gated (named/budget/roaming/… already matched a Djezzy cue).
+_GATE_SYSTEM = (
+    "Tu es un classifieur binaire. Tu réponds EXCLUSIVEMENT par un seul mot : "
+    "OUI ou NON. Aucune autre sortie n'est autorisée."
+)
+
+
+def _in_domain(question: str) -> bool:
+    """True if `question` is about Djezzy / telecom (answer it), False if off-topic.
+
+    Defaults to True on any ambiguous output, so a real customer is never wrongly
+    refused because the classifier hesitated (false-refusals are the costly error)."""
+    user = (
+        "La question suivante d'un client concerne-t-elle l'opérateur de téléphonie "
+        "algérien Djezzy — ses offres, forfaits, prix, recharge/Flexy, roaming, réseau, "
+        "internet, carte SIM, ou un autre service télécom ?\n"
+        "Réponds OUI si le sujet est Djezzy/télécom, NON s'il est hors sujet (météo, "
+        "géographie, capitale, calcul, histoire, sport, blague, culture générale...).\n\n"
+        f"Question : {question}\n\nRéponse (un seul mot, OUI ou NON) :"
+    )
+    messages = [{"role": "system", "content": _GATE_SYSTEM},
+                {"role": "user", "content": user}]
+    if _tokenizer is not None:
+        prompt = _tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True)
+    else:
+        prompt = (f"<|im_start|>system\n{_GATE_SYSTEM}<|im_end|>\n"
+                  f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n")
+    verdict = _generate_n(prompt, 5).strip().lower()
+    return not (verdict.startswith("non") or verdict.startswith("no") or "لا" in verdict)
+
+
+# Out-of-domain refusal, per language (polite, redirects to Djezzy).
+_OOD_REFUSAL = {
+    "fr": "Je suis l'assistant virtuel de Djezzy et je ne réponds qu'aux questions "
+          "concernant Djezzy (offres, forfaits, recharge, roaming, réseau...). "
+          "Comment puis-je vous aider à ce sujet ?",
+    "en": "I'm Djezzy's virtual assistant and I only answer questions about Djezzy "
+          "(offers, plans, recharge, roaming, network...). How can I help you with that?",
+    "ar": "أنا المساعد الافتراضي لجيزي وأجيب فقط عن الأسئلة المتعلقة بجيزي (العروض، "
+          "الباقات، التعبئة، التجوال، الشبكة...). كيف يمكنني مساعدتك في هذا المجال؟",
+    "dz": "أنا المساعد الافتراضي لجيزي وأجيب فقط عن الأسئلة المتعلقة بجيزي (العروض، "
+          "الباقات، التعبئة، التجوال، الشبكة...). كيف يمكنني مساعدتك في هذا المجال؟",
+}
 
 
 # ===========================================================================
@@ -376,6 +437,19 @@ def generate_answer(question: str, lang: str, vector_db, history: list = None) -
         return {"text": _NO_CONTEXT.get(lang, _NO_CONTEXT["fr"]),
                 "route": "no_context",
                 "t_retrieval": stages["retrieval"], "t_generation": 0.0}
+
+    # OOD domain gate (second layer): only the catch-all NORMAL route can be off-topic
+    # — the other routes matched a concrete Djezzy cue (offer name / budget / roaming).
+    # A focused yes/no classification refuses what the inline rule let slip, without a
+    # full generation. Timed separately so its cost shows up honestly in the latency.
+    if route == "normal":
+        with timed(stages, "gate"):
+            in_domain = _in_domain(question)
+        if not in_domain:
+            return {"text": _OOD_REFUSAL.get(lang, _OOD_REFUSAL["fr"]),
+                    "route": "out_of_domain",
+                    "t_retrieval": stages["retrieval"], "t_generation": 0.0,
+                    "t_gate": stages["gate"]}
 
     budget = budget_of(question)        # hard ceiling, non-None only on the budget route
     context = _format_context(docs)

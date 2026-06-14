@@ -117,7 +117,7 @@ def r06_ood_english(idx):
     instead contains a TEMPERATURE reading — a number next to degrees. We check for
     that, plus that the bot didn't leave its domain."""
     r = bot.answer("What's the weather in Algiers tomorrow?", idx)
-    is_decline = r["route"] in ("no_context", "normal")
+    is_decline = r["route"] in ("no_context", "normal", "out_of_domain")
     gave_temp = re.search(r"\d+\s*(°|deg|celsius|fahrenheit|درجة)", r["text"].lower()) is not None
     ok = is_decline and not gave_temp
     return ok, f"route={r['route']} gave_temp={gave_temp} :: {r['text'][:80]}"
@@ -259,11 +259,23 @@ def r16_multitier_ascending(idx):
 # Group E — added coverage (more languages x routes; more OOD; completeness)
 # ===========================================================================
 def r17_budget_english(idx):
-    """Budget intent in English: only offers <= budget in the answer."""
-    r = bot.answer("I have 600 DA, what offers can I get?", idx)
+    """Budget intent in English: only offers <= budget in the answer.
+
+    DIAGNOSTIC: also dumps the prices actually present in the retrieved budget
+    CONTEXT, so a leak is pinned to its source — if an over-budget amount appears in
+    ctx_prices it is a retriever/filter leak; if it appears ONLY in the answer it is
+    the model re-printing a crédit amount as a bare price (a presentation bug)."""
+    q = "I have 600 DA, what offers can I get?"
+    r = bot.answer(q, idx)
     op = _offer_prices(r["text"])
+    over = [p for p in op if p > 600]
+    docs = smart_retrieve(q, "en", idx)
+    ctx_prices = sorted({p for d in docs for p in _prices(d.page_content)}) \
+        if docs != config.COMPETITOR_SENTINEL else []
+    in_ctx = [p for p in over if p in ctx_prices]
     ok = len(op) > 0 and all(p <= 600 for p in op)
-    return ok, f"route={r['route']} offer_prices={op} :: {r['text'][:70]}"
+    return ok, (f"route={r['route']} offer_prices={op} over_budget={over} "
+                f"over_in_context={in_ctx} ctx_prices={ctx_prices}")
 
 
 def r18_named_english(idx):

@@ -185,7 +185,7 @@ def _is_refusal(text: str, route: str) -> bool:
     A refusal is either a short-circuit (competitor / no-context route) or an LLM
     answer that uses a decline phrase and offers no real content. Used only to score
     the OOD metric, where the gold label is known."""
-    if route in ("competitor", "no_context"):
+    if route in ("competitor", "no_context", "out_of_domain"):
         return True
     t = text.lower()
     return any(p in t for p in _DECLINE_PHRASES)
@@ -278,7 +278,7 @@ def eval_groundedness(vector_db, subset=None):
     for i, d in enumerate(items, 1):
         print(f"    [grounded {i}/{len(items)}] {d['q'][:38]!r:42s}", end="", flush=True)
         res = bot.generate_answer(d["q"], d["lang"], vector_db)
-        if res["route"] in ("competitor", "no_context"):
+        if res["route"] in ("competitor", "no_context", "out_of_domain"):
             print(" (refused — skipped)", flush=True)
             continue
         answered += 1
