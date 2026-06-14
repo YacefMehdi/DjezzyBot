@@ -176,7 +176,7 @@ academic year 2025--2026.}
 \addcontentsline{toc}{chapter}{Abstract}
 
 \textbf{Abstract}\\[0.3cm]
-This thesis presents the design and implementation of \textbf{DjezzyBot}, a multilingual virtual assistant for subscribers of the Algerian operator Djezzy. Call centers handle a large volume of repetitive, factual questions, and there is no NLP tool fitted to the mix of languages used in Algeria (French, Modern Standard Arabic, English, and Algerian Darija). DjezzyBot answers questions about offers and prices \emph{only} from text scraped from Djezzy's own websites, through a \textbf{RAG} (\textit{Retrieval-Augmented Generation}) pipeline built entirely on free, open-source models that run on a single Google Colab T4 GPU (15~GB). Retrieval is a rule-based intent router with \numRoutes{} routes placed in front of a dense \textbf{FAISS} index (\texttt{multilingual-e5} embeddings, exact cosine search); generation uses \textbf{Qwen2.5-7B-Instruct} quantized to 4-bit. The assistant also accepts and produces speech (Whisper for recognition, Coqui XTTS-v2 for synthesis). Out-of-domain questions are handled by two layers --- a low similarity floor and the model's own domain-scope rule --- a design we justify with a calibration experiment on about 95 queries, which shows that the embedding score alone cannot separate real questions from off-topic ones. On \numTestsTotal{} acceptance scenarios across four languages, the system passes \numTestsPass{}/\numTestsTotal{} (100\,\%).
+This thesis presents the design and implementation of \textbf{DjezzyBot}, a multilingual virtual assistant for subscribers of the Algerian operator Djezzy. Call centers handle a large volume of repetitive, factual questions, and there is no NLP tool fitted to the mix of languages used in Algeria (French, Modern Standard Arabic, English, and Algerian Darija). DjezzyBot answers questions about offers and prices \emph{only} from text scraped from Djezzy's own websites, through a \textbf{RAG} (\textit{Retrieval-Augmented Generation}) pipeline built entirely on free, open-source models that run on a single Google Colab T4 GPU (15~GB). Retrieval is a rule-based intent router with \numRoutes{} routes placed in front of a dense \textbf{FAISS} index (\texttt{multilingual-e5} embeddings, exact cosine search); generation uses \textbf{Qwen2.5-7B-Instruct} quantized to 4-bit. The assistant also accepts and produces speech (Whisper for recognition, Coqui XTTS-v2 for synthesis). Out-of-domain questions are handled by two layers --- a low similarity floor and the model's own domain-scope rule --- a design we justify with a calibration experiment on about 95 queries, which shows that the embedding score alone cannot separate real questions from off-topic ones. Across \numTestsTotal{} behavioral acceptance scenarios spanning the four languages, the system passes every one --- a functional validation of its behavior rather than a statistical accuracy score, with a metric-based evaluation (precision, recall, retrieval recall@k against a baseline) identified as the next step.
 
 \textbf{Keywords:} LLM, RAG, Chatbot, NLP, Darija, Qwen~2.5, FAISS, multilingual-e5, Whisper, XTTS, Virtual Assistant, Djezzy.
 
@@ -186,7 +186,7 @@ This thesis presents the design and implementation of \textbf{DjezzyBot}, a mult
 
 \begin{french}
 \textbf{Résumé}\\[0.3cm]
-Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un assistant virtuel multilingue destiné aux abonnés de l'opérateur algérien Djezzy. Face au volume élevé de questions factuelles récurrentes adressées aux centres d'appels et à l'absence d'outil NLP adapté au contexte algérien (français, arabe standard, anglais et darija algérienne), le système répond aux questions sur les offres et les prix \emph{uniquement} à partir de textes extraits des sites officiels de Djezzy, via une architecture \textbf{RAG} (\textit{Retrieval-Augmented Generation}) reposant entièrement sur des modèles libres et gratuits exécutés sur un seul GPU Google Colab T4 (15~Go). La recherche s'appuie sur un routeur d'intention à règles (\numRoutes{} routes) placé devant un index dense \textbf{FAISS} (embeddings \texttt{multilingual-e5}, similarité cosinus exacte)~; la génération est assurée par \textbf{Qwen2.5-7B-Instruct} quantifié en 4-bit. L'assistant gère aussi la voix (Whisper pour la reconnaissance, Coqui XTTS-v2 pour la synthèse). Les questions hors-domaine sont traitées par deux niveaux --- un seuil de similarité bas et la règle de domaine du modèle lui-même ---, un choix que nous justifions par une expérience de calibration sur environ 95 requêtes. Sur \numTestsTotal{} scénarios d'acceptation couvrant quatre langues, le système réussit \numTestsPass{}/\numTestsTotal{} (100\,\%).
+Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un assistant virtuel multilingue destiné aux abonnés de l'opérateur algérien Djezzy. Face au volume élevé de questions factuelles récurrentes adressées aux centres d'appels et à l'absence d'outil NLP adapté au contexte algérien (français, arabe standard, anglais et darija algérienne), le système répond aux questions sur les offres et les prix \emph{uniquement} à partir de textes extraits des sites officiels de Djezzy, via une architecture \textbf{RAG} (\textit{Retrieval-Augmented Generation}) reposant entièrement sur des modèles libres et gratuits exécutés sur un seul GPU Google Colab T4 (15~Go). La recherche s'appuie sur un routeur d'intention à règles (\numRoutes{} routes) placé devant un index dense \textbf{FAISS} (embeddings \texttt{multilingual-e5}, similarité cosinus exacte)~; la génération est assurée par \textbf{Qwen2.5-7B-Instruct} quantifié en 4-bit. L'assistant gère aussi la voix (Whisper pour la reconnaissance, Coqui XTTS-v2 pour la synthèse). Les questions hors-domaine sont traitées par deux niveaux --- un seuil de similarité bas et la règle de domaine du modèle lui-même ---, un choix que nous justifions par une expérience de calibration sur environ 95 requêtes. Sur \numTestsTotal{} scénarios d'acceptation comportementaux couvrant les quatre langues, le système les réussit tous --- une validation fonctionnelle de son comportement plutôt qu'un score de précision statistique, une évaluation quantitative (précision, rappel, rappel@k de la recherche face à une \textit{baseline}) étant identifiée comme l'étape suivante.
 
 \textbf{Mots-clés :} LLM, RAG, Chatbot, NLP, Darija, Qwen~2.5, FAISS, multilingual-e5, Whisper, XTTS, Assistant Virtuel, Djezzy.
 \end{french}
@@ -206,7 +206,7 @@ Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un
 (تضمينات \LR{multilingual-e5}، بحث جيب التمام الدقيق)؛ ويتكفّل بالتوليد نموذج \LR{Qwen2.5-7B-Instruct} المُكمَّم إلى 4-بت.
 يدعم النظام أيضاً الصوت (\LR{Whisper} للتعرّف و\LR{Coqui XTTS-v2} للتركيب). تُعالَج الأسئلة خارج النطاق عبر طبقتين
 --- عتبة تشابه منخفضة وقاعدة النطاق الخاصة بالنموذج ---، وهو خيار نبرّره بتجربة معايرة على نحو 95 استفساراً.
-على \numTestsTotal{} سيناريو قبول تغطّي أربع لغات، ينجح النظام في \LR{\numTestsPass{}/\numTestsTotal{}} (100\,\%).
+على \numTestsTotal{} سيناريو قبول سلوكي تغطّي اللغات الأربع، ينجح النظام فيها جميعاً --- وهو تحقّق وظيفي من سلوكه وليس مقياس دقّة إحصائياً، مع تحديد تقييم كمّي (الدقّة، الاستدعاء، الاستدعاء@k للاسترجاع مقابل خطّ أساس) كخطوة تالية.
 
 {\textbf{الكلمات المفتاحية:}} نموذج لغوي كبير، \LR{RAG}، روبوت محادثة، معالجة اللغة الطبيعية، الدارجة، \LR{Qwen 2.5}، \LR{FAISS}، \LR{multilingual-e5}، \LR{Whisper}، \LR{XTTS}، مساعد افتراضي، جيزي.
 \end{Arabic}
@@ -871,6 +871,11 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
     \item \humantext{\textbf{Strong multilingual models:} use a multilingual embedding model and LLM (such as Qwen) whose massive multilingual training lets them ``read'' dialectal sentences directly. \textbf{This is the strategy we adopted}: we embed Darija directly with \texttt{multilingual-e5} and let Qwen answer in MSA, with \emph{no} translation layer at all (see Chapter~3).}
 \end{enumerate}
 
+\subsection{Academic Work on Algerian and Maghrebi Dialectal NLP}
+\humantext{Our project leans on this dialectal research, so it is worth saying plainly where the field stands --- and being honest that almost all of it tackles narrower tasks than a full assistant.} \sourced{The most directly relevant resource is the \textbf{NArabizi} treebank \cite{seddah2020narabizi}: about 1{,}500 sentences of romanized Algerian user-generated content, annotated for morphology and syntax, built precisely because code-switching makes this variety so hard to parse.} \sourced{On the model side, \textbf{DziriBERT} \cite{abdaoui2021dziribert} is the first Transformer language model pre-trained specifically for the Algerian dialect, covering both Arabic-script and Arabizi text; its Moroccan counterpart \textbf{DarijaBERT} \cite{gaanoun2024darijabert} follows the same recipe on the largest written-Darija corpus assembled to date.} \sourced{For raw data, \textbf{DZDC12} \cite{abainia2019dzdc12} is a parallel Algerian Arabizi--French code-switched corpus spanning twelve cities, and \textbf{TUNIZI} \cite{fourati2020tunizi} offers a large Tunisian Arabizi sentiment set.}
+
+\humantext{Two things stand out when you line these up against our problem. First, they are almost all \emph{encoder} models or \emph{annotated corpora} aimed at classification --- sentiment, parsing, offensive-language detection --- not generative question answering, and none ships as a deployed multilingual assistant grounded in a live commercial knowledge base. Second, a dialect-specific encoder like DziriBERT could in principle sharpen retrieval, but it is monolingual by dialect: on its own it would not place a Darija question and a French offer page in the \emph{same} vector space the way \texttt{multilingual-e5} does, which is the property our no-translation design depends on. The gap, then, is not a shortage of dialectal building blocks --- it is that no prior work ties them into an end-to-end, voice-and-text telecom RAG assistant for the Algerian language mix. That is the space DjezzyBot occupies, and we come back to DziriBERT as a concrete fine-tuning avenue in the conclusion.}
+
 \section{Virtual Assistants in Telecom: State of Play}
 \humantext{Telecom operators have used virtual assistants for years. The catch is that almost all of them are proprietary:}
 \begin{itemize}
@@ -1072,6 +1077,9 @@ Zid         & 5  & Roaming  & 38 \\
 
 \humantext{The HTML-cleaning step described above was decisive for quality. An early crawl let the site's ``mega-menu'' blocks (\texttt{<div>} elements with classes such as \texttt{mega-menu} and \texttt{menu-dropdown}) slip into every document, which polluted the FAISS index and triggered LLM hallucinations. Extending the cleaner to drop elements by CSS sub-token (Section~3.3.2) removed that navigation noise at the source, so each kept page now holds only its editorial content.}
 
+\subsection{Ethical and Legal Considerations}
+\humantext{Since the whole knowledge base comes from scraping, we owe the question a direct answer rather than skirting it. Three points frame our position. First, the scraper only ever reads \textbf{public} pages --- the same offer and price pages any visitor sees --- and collects \textbf{no personal data} of any kind: there are no accounts, comments, or profiles in the crawl, only Djezzy's own published commercial information. Second, the crawler behaves politely: it identifies itself with an ordinary browser User-Agent, spaces its requests with a randomized delay, and caps its own rate, so it never hammers the site the way an aggressive bot would. Third, this work was carried out as a final-year internship (\textit{Projet de Fin d'\'Etudes}) hosted by Djezzy itself, under a formal stage convention signed between the Faculty of Sciences of the University of Algiers~1 and Djezzy pursuant to executive decree n\textsuperscript{o}~13-306 of 31~August~2013. The project ran inside Djezzy's \textit{Data Science and Advanced Analytics} department from February to June~2026, with an academic supervisor on the university side and a company supervisor (\textit{ma\^itre de stage}) on Djezzy's side. Djezzy is therefore the project's \textbf{host organization}, not an unwitting third party: the operator hosted and supervised the work, which removes any ambiguity about the relationship. DjezzyBot remains an academic prototype built \emph{about} Djezzy's public catalogue rather than a commercial service deployed against it.} \humantext{We flag the honest caveat too: a real deployment would still want Djezzy's explicit sign-off on automated access and a refresh cadence agreed with them, rather than relying on a research-time crawl.}
+
 \section{Building the Vector Knowledge Base}
 
 \subsection{Indexing Pipeline}
@@ -1201,7 +1209,7 @@ Zid         & 5  & Roaming  & 38 \\
     \textit{``I am Djezzy's virtual assistant and cannot provide information about other operators. I'd be glad to tell you about Djezzy's offers.''}
 \end{quote}
 
-\humantext{One subtlety is worth noting: a bare brand mention is not always a competitor question. A Djezzy offer legitimately advertises ``unlimited calls to Ooredoo and Mobilis'', so the router refuses only when no call-destination cue (``vers'', ``calls to''\ldots) precedes the brand. This avoids wrongly refusing a real Djezzy question. Because it runs in pure Python (no LLM), the refusal is instant and fully reliable.}
+\humantext{One subtlety is worth noting: a bare brand mention is not always a competitor question. A Djezzy offer legitimately advertises ``unlimited calls to Ooredoo and Mobilis'', so the router refuses only when no call-destination cue (``vers'', ``calls to''\ldots) precedes the brand. This avoids wrongly refusing a real Djezzy question. Because it runs in pure Python (no LLM), the refusal is instant and deterministic for every brand spelling on our list. We are careful not to oversell it, though: the match is literal, so a misspelling we did not anticipate (``Oredoo'' for Ooredoo) would slip past this guard and fall through to the LLM, which then declines it under its own no-competitor rule. The firewall is a fast, reliable first line --- not an infallible one --- and the LLM rule is the backstop behind it.}
 
 \section{Multilingual Handling Without Translation}
 
@@ -1495,6 +1503,35 @@ def voice_answer(audio_path, vector_db, history=None):
             "lang": lang, "route": res["route"], "wav_path": wav_path}
 \end{lstlisting}
 
+\section{Deployment, Logging, and Security}
+\humantext{Two operational points deserve a mention, because a prototype that ignores them stores up trouble for later. \textbf{Logging:} every module writes through Python's \texttt{logging} at \texttt{INFO} level, so each request leaves a trace --- the route taken, the per-stage timing, any retry or fallback --- which is exactly what made the latency measurements and the failure triage of Chapter~5 possible. \textbf{Security:} the Gradio app is launched with a public share link (\texttt{share=True}). That is the right choice for a demo --- anyone with the URL can try the bot from a phone --- but it is an \emph{unauthenticated, temporary tunnel} and must not be mistaken for a production endpoint. A real deployment would sit behind authentication on Djezzy's own infrastructure (the ``private-infrastructure'' direction of Chapter~5), not on a throwaway public URL. The exposure of the prototype itself is limited --- it serves only Djezzy's public catalogue and holds no subscriber data --- but the principle stands.}
+
+\humantext{For reproducibility, Table~\ref{tab:versions} pins the main software versions the system was built and measured on.}
+
+\begin{table}[H]
+\centering
+\caption{Main software versions}
+\label{tab:versions}
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Component} & \textbf{Version} & \textbf{Role} \\
+\midrule
+Python                & 3.12             & runtime \\
+PyTorch               & Colab CUDA build & tensor backend \\
+transformers          & $\ge$ 4.44       & Qwen2.5 loading and generation \\
+bitsandbytes          & $\ge$ 0.43       & 4-bit NF4 quantization \\
+accelerate            & $\ge$ 0.33       & device placement \\
+sentence-transformers & $\ge$ 3.0        & multilingual-e5 embeddings \\
+faiss-cpu             & $\ge$ 1.8        & vector index \\
+langchain             & $\ge$ 0.2        & RAG orchestration \\
+faster-whisper        & $\ge$ 1.0        & Whisper-medium STT \\
+coqui-tts             & $\ge$ 0.24       & XTTS-v2 synthesis \\
+playwright            & $\ge$ 1.44       & crawl rendering \\
+gradio                & $\ge$ 4.44       & web interface \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \section{Conclusion}
 \humantext{This chapter detailed the software realization of DjezzyBot on a Google Colab T4. By fitting the model within the VRAM budget through 4-bit quantization, by routing intent with a single deterministic classifier shared between retrieval and presentation, and by sharing one ``brain'' between the text and voice paths, we obtained a dependable, sovereign voice-and-text chatbot. The next chapter covers the acceptance tests and the quantitative evaluation of the system.}
 % --- END OF CHAPTER 4 ---
@@ -1506,7 +1543,7 @@ def voice_answer(audio_path, vector_db, history=None):
 \chapter{Testing, Evaluation, and Architecture Comparison}
 
 \section{Introduction}
-\humantext{Having described how DjezzyBot is built, we now validate its behavior with a concrete test protocol.} \humantext{This chapter presents the acceptance-test suite we use to check language detection, intent routing, and factual accuracy end to end. We then report the results across four languages, give the per-stage latency, and compare our local open-source stack with the cloud-API prototype we started from.}
+\humantext{Having described how DjezzyBot is built, we now validate its behavior with a concrete test protocol.} \humantext{This chapter presents the acceptance-test suite we use to check language detection, intent routing, and factual grounding end to end. We then report the results across four languages, give the per-stage latency, and compare our local open-source stack with the cloud-API prototype we started from.}
 
 \section{Evaluation Methodology}
 
@@ -1545,7 +1582,9 @@ def voice_answer(audio_path, vector_db, history=None):
 \section{Evaluation Results}
 
 \subsection{Overall, by Language and by Route}
-\humantext{On the latest Colab T4 run, DjezzyBot passes all \textbf{\numTestsPass{}/\numTestsTotal{}} scenarios (100\,\%). The budget scenario passes too, but it stays the weakest route, for a data-quality reason we discuss below. Tables~\ref{tab:pass_lang} and~\ref{tab:pass_route} give the breakdown by language and by route.}
+\humantext{On the latest Colab T4 run, DjezzyBot passes all \numTestsTotal{} of its acceptance scenarios. The budget scenario passes too, but it stays the weakest route, for a data-quality reason we discuss below. Tables~\ref{tab:pass_lang} and~\ref{tab:pass_route} give the breakdown by language and by route.}
+
+\humantext{We are deliberate about what this number is and is not. These \numTestsTotal{} scenarios are a \emph{behavioral acceptance suite}, not a statistical precision estimate: each asserts an exact, predetermined behavior, and because decoding is greedy every run is reproducible. So ``\numTestsPass{}/\numTestsTotal{}'' means ``the system does the specified right thing on each of these cases'', not ``it is correct 100\,\% of the time in the wild''. A stronger evaluation --- a larger labelled query set, an external baseline (pure dense retrieval with no router), ablations of the router and lexicon, a sweep over $k$, separate retrieval and generation metrics (recall@k, faithfulness), and a second independent annotator for agreement --- is the natural next step, and we list it under future work rather than claim it here.}
 
 \begin{table}[H]
 \centering
@@ -1667,6 +1706,8 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 
 \humantext{The takeaway is that, even though the local T4 is slower in raw token throughput than Groq's accelerators, the local architecture gives what a telecom operator actually needs: no failures from third-party quotas, full sovereignty over subscriber data, and complete control over the embedding and voice models.}
 
+\humantext{One caveat keeps us honest about this table: it compares two whole \emph{deployments}, not two models or two GPUs in isolation. The cloud side ran Llama~3 on Groq's accelerators; the local side runs Qwen2.5-7B in 4-bit on a T4. Model and infrastructure vary together, so the latency gap isolates neither on its own --- we read it only as evidence that the per-token decode rate of the free-T4 4-bit kernel, not the RAG pipeline, sets the local response time. A controlled study would fix the model and vary only the hardware, and pair it with a like-for-like answer-quality comparison; we leave that to future work and draw no model-quality conclusion from the speed gap here.}
+
 % ================================================================
 % CONCLUSION GÉNÉRALE
 % ================================================================
@@ -1683,7 +1724,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
     \item \humantext{A \textbf{fully local, open-source voice-and-text stack} (Qwen2.5-7B 4-bit, multilingual-e5, Whisper-medium, Coqui XTTS-v2 on demand) that fits a 15~GB T4 and keeps all subscriber data on-premises.}
 \end{itemize}
 
-\humantext{On \numTestsTotal{} acceptance scenarios across four languages, DjezzyBot passes \textbf{\numTestsPass{}/\numTestsTotal{}} (100\,\%). The budget route passes as well, though it remains the system's weakest point, because Djezzy's pages mix subscription prices with per-unit tariffs.}
+\humantext{Across its \numTestsTotal{} acceptance scenarios in four languages, DjezzyBot passes every one --- a functional acceptance check of its behavior, not an accuracy figure (the metric-based evaluation is set out in future work). The budget route passes as well, though it remains the system's weakest point, because Djezzy's pages mix subscription prices with per-unit tariffs.}
 
 \humantext{This work opens several directions for future research and development:}
 \begin{itemize}
@@ -1691,6 +1732,8 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
     \item \humantext{\textbf{Information-system integration}: connecting the bot to Djezzy's back-office APIs for personalized, real-time requests (the subscriber's actual balance, activating options directly from the bot).}
     \item \humantext{\textbf{Private-infrastructure deployment}: migrating the local quantized stack to Djezzy's own servers for operational sovereignty and scalability.}
     \item \humantext{\textbf{Strengthening the budget route}: a cleaner separation of subscription prices from per-unit tariffs in the data, to harden the system's weakest route against unusual page layouts.}
+    \item \humantext{\textbf{A rigorous evaluation benchmark}: replacing the deterministic acceptance suite with a larger labelled query set scored against an external baseline (pure dense retrieval), with router and lexicon ablations, a sweep over the retrieval depth $k$, separate retrieval and generation metrics (recall@k, faithfulness), and inter-annotator agreement --- to turn ``passes its acceptance cases'' into a statistically grounded accuracy figure.}
+    \item \humantext{\textbf{Quantitative voice evaluation}: measuring transcription quality with Word Error Rate on an Algerian Arabic/Darija audio reference set, and synthesis quality with a listening-based score, neither of which exists for this language pair yet --- the voice path is currently reported by latency only.}
 \end{itemize}
 
 % --- BIBLIOGRAPHIE ---
@@ -1770,6 +1813,21 @@ Kim, J., Kong, J., Son, J. (2021). \textit{Conditional Variational Autoencoder w
 
 \bibitem{casanova2024xtts}
 Casanova, E., Davis, K., Gölge, E., et al. (2024). \textit{XTTS: a Massively Multilingual Zero-Shot Text-to-Speech Model}. arXiv preprint arXiv:2406.04904.
+
+\bibitem{seddah2020narabizi}
+Seddah, D., Essaidi, F., Fethi, A., et al. (2020). \textit{Building a User-Generated Content North-African Arabizi Treebank: Tackling Hell}. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics (ACL), 1139--1150.
+
+\bibitem{abdaoui2021dziribert}
+Abdaoui, A., Berrimi, M., Oussalah, M., Moussaoui, A. (2021). \textit{DziriBERT: a Pre-trained Language Model for the Algerian Dialect}. arXiv preprint arXiv:2109.12346.
+
+\bibitem{gaanoun2024darijabert}
+Gaanoun, K., Naira, A.M., Allak, A., Benelallam, I. (2024). \textit{DarijaBERT: a Step Forward in NLP for the Written Moroccan Dialect}. International Journal of Data Science and Analytics, Springer.
+
+\bibitem{abainia2019dzdc12}
+Abainia, K. (2019). \textit{DZDC12: a New Multipurpose Parallel Algerian Arabizi--French Code-Switched Corpus}. Language Resources and Evaluation, Springer.
+
+\bibitem{fourati2020tunizi}
+Fourati, C., Messaoudi, A., Haddad, H. (2020). \textit{TUNIZI: a Tunisian Arabizi Sentiment Analysis Dataset}. arXiv preprint arXiv:2004.14303.
 
 \end{thebibliography}
 
