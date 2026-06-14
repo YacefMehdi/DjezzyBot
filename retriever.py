@@ -41,8 +41,12 @@ logger = logging.getLogger("djezzybot.retriever")
 # Arabic-Indic digits -> ASCII, so "عندي ٥٠٠ دج" parses like "500 da".
 _ARAB_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 
-# Budget amount: a number followed by a dinar token (da / dinars / دج / د.ج).
-_BUDGET_RE = re.compile(r"(\d[\d\s]*)\s*(?:da|dinars?|dzd|دج|د\.?ج)\b", re.IGNORECASE)
+# Budget amount: a number followed by a dinar token. Covers the Latin forms
+# (da / dinars / dzd), the abbreviated Arabic (دج / د.ج) AND the full Arabic word
+# دينار / دنانير — Arabic speakers commonly write the amount as "1000 دينار", which
+# the abbreviation-only pattern used to miss (the query then misrouted off budget).
+_BUDGET_RE = re.compile(
+    r"(\d[\d\s]*)\s*(?:da|dinars?|dzd|دينار|دنانير|دج|د\.?ج)\b", re.IGNORECASE)
 
 # Price inside a chunk, e.g. "3 000 DA", "500 DA".
 _PRICE_RE = re.compile(r"(\d[\d\s]{0,7}\d|\d)\s*(?:da|dinars?|dzd)\b", re.IGNORECASE)

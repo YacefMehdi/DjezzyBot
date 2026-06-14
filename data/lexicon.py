@@ -248,6 +248,20 @@ def _fold(s: str) -> str:
 # Some offers have surface variants written differently in pages vs queries.
 _OFFER_VARIANTS = {"campuce": ["campuce", "cam puce"]}
 
+# Arabic-script spellings of brand offer names → canonical Latin name. Arabic
+# speakers sometimes transliterate the brand ("ليجند" for Legend) instead of writing
+# it in Latin. We map only UNAMBIGUOUS transliterations to the canonical Latin name,
+# so downstream chunk matching (the scraped pages keep the Latin brand) still works.
+# Ambiguous ones are deliberately left out — e.g. "زيد" is also the everyday verb
+# "to add", which would cause false matches just like bare "Zid"/"Zidane" in Latin.
+OFFER_ALIASES = {
+    "ليجند": "legend",
+    "ليجاند": "legend",
+    "ايزي": "izzy",
+    "إيزي": "izzy",
+    "كونفور": "confort",
+}
+
 # Cache one word-boundary regex per (accent-folded) surface form.
 _OFFER_PATTERNS = {}
 
@@ -358,4 +372,9 @@ def detect_offers(query: str) -> list:
         if canonical not in found:
             found.append(canonical)
         consumed_spans.append(span)
+    # Arabic-script brand spellings → canonical Latin name (so an Arabic query like
+    # "عرض ليجند" is detected as the Legend offer and matched against the Latin pages).
+    for ar, canon in OFFER_ALIASES.items():
+        if ar in folded and canon not in found:
+            found.append(canon)
     return found
