@@ -28,18 +28,25 @@ Usage
 Writes evaluate_results.json so the thesis tables/macros are filled from real runs.
 """
 
+import re
 import json
 import logging
 
 import config
 import bot
-import retriever
 from retriever import smart_retrieve, classify_route
 from data import lexicon
 
 logger = logging.getLogger("djezzybot.evaluate")
 
-_PRICE_RE = retriever._PRICE_RE
+# Multilingual price regex for the GROUNDEDNESS metric: an Arabic answer writes the
+# price as "1500 دج" / "دينار", which the Latin-only retriever pattern (da/dinars/dzd)
+# can't see — so Arabic answers scored a misleading 0/0 ("no price to check") even
+# when they quoted the right figures. We add the Arabic currency tokens and normalise
+# Arabic-Indic digits so an Arabic answer's prices are matched against the context.
+_ARAB_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
+_PRICE_RE = re.compile(
+    r"(\d[\d\s]{0,7}\d|\d)\s*(?:da|dinars?|dzd|دج|د\.?ج|دينار|دنانير)\b", re.IGNORECASE)
 
 
 # ===========================================================================
@@ -251,7 +258,7 @@ def eval_retrieval(vector_db):
 # ===========================================================================
 def _prices(text):
     out = []
-    for m in _PRICE_RE.finditer(text.lower()):
+    for m in _PRICE_RE.finditer(text.lower().translate(_ARAB_DIGITS)):
         try:
             out.append(int(m.group(1).replace(" ", "")))
         except ValueError:
