@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DjezzyBot — Defense Flashcards</title>
+<style>
+  :root{ --red:#E4002B; --ink:#1a1a1a; --muted:#6b7280; --bg:#f5f6f8; --card:#fff; --ok:#16a34a; --rev:#d97706; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);}
+  header{background:var(--red);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px}
+  header .stats{margin-left:auto;font-size:13px;opacity:.95}
+  .wrap{max-width:820px;margin:0 auto;padding:16px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+  select,button{font-size:14px;padding:8px 12px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer}
+  button.primary{background:var(--red);color:#fff;border-color:var(--red);font-weight:600}
+  button:active{transform:translateY(1px)}
+  .card{background:var(--card);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:22px;min-height:230px;display:flex;flex-direction:column}
+  .tag{align-self:flex-start;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--red);font-weight:700;background:#ffe5ea;padding:3px 9px;border-radius:999px;margin-bottom:14px}
+  .q{font-size:20px;font-weight:650;line-height:1.4}
+  .a{margin-top:16px;padding-top:16px;border-top:1px dashed #e5e7eb;font-size:15.5px;line-height:1.6;color:#222;white-space:pre-wrap}
+  .a.hidden{display:none}
+  .hint{color:var(--muted);font-size:13px;margin-top:18px}
+  .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .grade{display:flex;gap:8px;margin-top:10px}
+  .grade button{flex:1}
+  .know{color:var(--ok);border-color:var(--ok)}
+  .again{color:var(--rev);border-color:var(--rev)}
+  .bar{height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:10px}
+  .bar>div{height:100%;background:var(--red);width:0%}
+  footer{color:var(--muted);font-size:12px;text-align:center;padding:18px}
+  kbd{background:#eee;border:1px solid #ccc;border-bottom-width:2px;border-radius:4px;padding:1px 6px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>DjezzyBot — Defense Flashcards</h1>
+  <div class="stats" id="stats"></div>
+</header>
+<div class="wrap">
+  <div class="controls">
+    <select id="cat"></select>
+    <button id="shuffle">🔀 Shuffle</button>
+    <button id="reset">↺ Reset progress</button>
+    <span style="flex:1"></span>
+    <button id="prev">◀ Prev</button>
+    <button id="next" class="primary">Next ▶</button>
+  </div>
+  <div class="bar"><div id="prog"></div></div>
+
+  <div class="card">
+    <span class="tag" id="tag"></span>
+    <div class="q" id="q"></div>
+    <div class="a hidden" id="a"></div>
+    <div class="hint" id="hint"></div>
+    <div class="row">
+      <button id="reveal" class="primary">Show answer (Space)</button>
+    </div>
+    <div class="grade" id="grade" style="display:none">
+      <button class="know" id="know">✓ I knew it</button>
+      <button class="again" id="rev">↻ Review again</button>
+    </div>
+  </div>
+
+  <footer>
+    <kbd>Space</kbd> reveal · <kbd>←</kbd>/<kbd>→</kbd> navigate · <kbd>k</kbd> knew it · <kbd>j</kbd> review<br>
+    Active recall: try to <b>say the answer out loud first</b>, then reveal and grade yourself honestly.
+  </footer>
+</div>
+
+<script>
+const CARDS = [
+// ---- Pipeline ----
+["Pipeline","Walk me through what happens when a user asks a question.",
+"Offline: scrape Djezzy → clean HTML → chunk 1200/120 → embed with multilingual-e5 (passage:) → FAISS IndexFlatIP.\nOnline: detect language → the intent router picks 1 of 7 routes → retrieve chunks (the route decides how) → build the prompt (system rules + retrieved context, all in the user turn) → Qwen2.5-7B greedy-generates → answer in the user's language → (voice) XTTS speaks it.\nText and voice call the SAME generate_answer."],
+["Pipeline","What is RAG and why use it?",
+"Retrieve the real text first, paste it into the prompt, and the LLM answers ONLY from it. Two payoffs: no hallucinated facts, and instant updates (change the data, no retraining). The bot never answers from the model's own memory."],
+["Pipeline","Why FAISS IndexFlatIP and not an approximate index?",
+"IndexFlatIP is exact brute-force inner product = exact cosine on our L2-normalized vectors. The corpus is small (~769 chunks) so exact search is instant. Approximate indexes (IVF) only matter at millions of vectors."],
+["Pipeline","What do the passage:/query: prefixes do?",
+"multilingual-e5 was trained with them — documents get 'passage:', queries get 'query:'. Dropping them measurably hurts retrieval. Vectors are L2-normalized, so the inner product equals cosine similarity."],
+["Pipeline","Why chunk size 1200 / overlap 120?",
+"1200 chars keeps an offer's price+volume+validity together but stays on one topic; 120 (10%) overlap so a fact isn't cut at the boundary. Chunking is page-bounded — a chunk never mixes two URLs."],
+// ---- Router ----
+["Router","What does the intent router add over plain vector search?",
+"Pure dense search broke on coined names, comparisons, budgets, roaming and competitors. A rule-based router reads the question BEFORE FAISS and picks 1 of 7 routes (competitor > roaming > catalogue > comparison > budget > named > normal), each with the right strategy. It is NOT a hybrid retriever — no BM25, no reranker; the search stays pure dense."],
+["Router","Why does the embedding model miss \"Campuce\"?",
+"It's an invented brand (Campus + puce), in no training corpus, so e5 can't retrieve it by meaning. The router instead matches the literal offer name in the chunk text (whole-word, accent-insensitive). Fine-tuning can't learn a word it never saw; the router can."],
+["Router","Why sort offers cheapest-first in Python, not via the LLM?",
+"So the answer never depends on the LLM obeying 'sort these'. A Python helper splits tier blocks (skipping per-unit rates and crédit/bonus amounts) and orders them ascending — the context arrives already sorted. This fixed Campuce's 7 tiers coming back jumbled."],
+["Router","How do you tell \"offre Ooredoo\" from \"iZZY calls Mobilis\"?",
+"The competitor firewall refuses only when a rival is the SUBJECT. If a call-destination cue ('vers', 'calls to') sits just before the brand, it's a Djezzy offer feature → allowed. Pure Python, instant. It's a fast first line, not infallible — a typo like 'Oredoo' falls through to the LLM's domain rule (the backstop)."],
+// ---- Multilingual ----
+["Multilingual","How do you support Darija without a translator?",
+"No translation layer. multilingual-e5 embeds fr/ar/en/Darija in one shared space, so a Darija question matches Arabic/French pages directly; a one-line directive tells Qwen which language to answer in (Darija → Modern Standard Arabic). An early Opus-MT pivot corrupted brand names and prices, so we dropped it."],
+["Multilingual","How does language detection work?",
+"Three priority layers: (1) Darija markers (incl. Arabizi like 'ch7al', 'bghit') first, because langdetect mistakes Darija for French; (2) Arabic script; (3) langdetect for French-vs-English. Measured 0.977 accuracy on the balanced eval set."],
+// ---- OOD ----
+["OOD","Why not just refuse anything below a similarity threshold?",
+"We measured ~95 queries: e5 scores EVERYTHING high and the bands overlap — real 0.774–0.846, off-topic 0.748–0.833, gibberish 0.798–0.838 (gibberish sometimes beats a real question). A threshold can't separate them. So two layers: a very low floor (0.70) that only catches degenerate input, and the LLM's domain rule that judges by meaning. The trade: never refuse a real customer, especially a short Darija question."],
+// ---- Evaluation (NEW) ----
+["Evaluation","How did you evaluate the system?",
+"Two parts. (1) A behavioral ACCEPTANCE suite — 14 deterministic pass/fail scenarios — which is functional validation, NOT an accuracy metric. (2) A quantitative metric evaluation: per-class precision/recall/F1 + confusion for language detection and intent routing, retrieval recall@k vs a no-router baseline, and automatic answer-groundedness. Labels are objective by construction → no self-grading bias."],
+["Evaluation","Is 14/14 your accuracy?",
+"No — and we say so explicitly. 14/14 is a behavioral acceptance suite (does the system do the specified right thing on each case), made deterministic by greedy decoding. The real accuracy figures come from the metric-based evaluation (precision/recall/recall@k against a baseline)."],
+["Evaluation","What are your actual numbers?",
+"Language detection: accuracy 0.977, macro-F1 0.976. Intent routing: accuracy 1.0, macro-F1 1.0 across all 7 routes and 4 languages. Retrieval recall@k (router vs baseline), end-to-end OOD F1, and groundedness come from the Colab run. A sub-100% language number is kept on purpose — it shows the evaluation isn't rigged."],
+["Evaluation","What baseline do you compare against?",
+"Pure dense retrieval — no router, no lexicon expansion. We compare its recall@k to the router's recall@k to quantify exactly what the router contributes. That's the ablation the supervisor asked for."],
+["Evaluation","How do you measure hallucination objectively?",
+"Groundedness: every price the answer states must appear in the retrieved context. The fraction of grounded prices is an automatic, objective anti-hallucination score — no human judgment needed."],
+["Evaluation","Isn't grading your own system biased?",
+"That's why most labels are objective by construction: a query's language, its intended intent, and the offer it asks about are known when we write it. So language/routing/retrieval metrics carry no annotator bias. Only answer quality is fuzzy — and we make it objective via automatic groundedness."],
+// ---- Stack ----
+["Stack","Why Qwen2.5-7B and not an Arabic model (Jais/Falcon)?",
+"Qwen2.5 has excellent Arabic + French, 128K context, strong instruction-following, and 7B fits a free T4 at 4-bit. Falcon/Jais are heavier or weaker at multilingual instruction-following in this weight class."],
+["Stack","Why local instead of an API?",
+"We started on Groq (Llama-3, cloud) — fast, but rate-limit failures and subscriber data leaving the country. We moved to a 100% local open-source stack for data sovereignty and no vendor lock-in. Slower on a free T4, but the architecture is identical."],
+["Stack","Why multilingual-e5 as the embedder?",
+"One model embeds French, Arabic, English and Darija in the same space → no translation step. A monolingual English embedder couldn't handle half our traffic."],
+// ---- Latency ----
+["Latency","What is 4-bit quantization and what do you lose?",
+"NF4 stores each weight in 4 bits instead of 16, shrinking Qwen-7B from ~14 GB to ~5 GB so it fits the T4, with little quality loss. The cost: the bitsandbytes 4-bit kernel is memory-saving but slow (~10–15 tokens/s)."],
+["Latency","Isn't it slow?",
+"On the free T4 + 4-bit, a long answer takes tens of seconds — that's the HARDWARE, not the architecture. Our Groq prototype on the same pipeline answered in ~1s. Retrieval is under 2s; generation is ~99% of the time and scales with answer length. Production GPUs restore real-time speed."],
+["Latency","Why is the Groq-vs-Colab comparison only qualitative?",
+"Because it confounds model AND infrastructure (Llama-3 on a Groq ASIC vs Qwen-7B 4-bit on a T4). They vary together, so it isolates neither — we draw no model-quality conclusion from the speed gap. A controlled study would fix the model and vary only the hardware."],
+["Latency","Why greedy decoding (do_sample=False)?",
+"Always pick the most-likely token, no randomness. In factual RAG, 'creativity' becomes hallucination. Greedy is also reproducible, which is what lets the acceptance tests assert exact behavior."],
+// ---- Related work (NEW) ----
+["Related Work","What academic work exists on Algerian/Maghrebi dialectal NLP?",
+"NArabizi treebank (romanized Algerian UGC, Seddah 2020); DziriBERT (first Algerian-dialect Transformer, Abdaoui 2021); DarijaBERT (Moroccan, Gaanoun 2024); DZDC12 (Algerian Arabizi–French corpus, Abainia 2019); TUNIZI (Tunisian Arabizi sentiment, Fourati 2020). They're mostly encoders/corpora for classification — none is a deployed multilingual telecom RAG assistant. That's our gap."],
+["Related Work","Could you have used DziriBERT for retrieval?",
+"It could sharpen retrieval, but it's monolingual-by-dialect — on its own it wouldn't place a Darija question and a French offer page in ONE shared space the way multilingual-e5 does, which our no-translation design depends on. It's a future fine-tuning avenue for the embedder."],
+// ---- Ethics (NEW) ----
+["Ethics","Is scraping djezzy.dz legal and ethical?",
+"We read only PUBLIC pages, collect NO personal data (no accounts, comments or profiles), and crawl politely (browser User-Agent, randomized delay, rate cap). And the work is a formal Projet de Fin d'Études internship hosted by Djezzy under a stage convention (decree 13-306), in their Data Science & Advanced Analytics department — so Djezzy is the documented host organization, not an unwitting third party."],
+// ---- Voice ----
+["Voice","How does the voice path work?",
+"Whisper-medium (faster-whisper, float16) transcribes and auto-detects language; the transcription goes through the EXACT same generate_answer as text; XTTS-v2 (loaded on demand) synthesizes the reply. The text is normalized first (units expanded, USSD/short codes spoken digit-by-digit)."],
+["Voice","Did you evaluate voice quality (WER / MOS)?",
+"Not yet quantitatively — voice is currently reported by latency only. WER needs an Algerian-Darija audio reference set (none is public) and MOS a listening panel; both are future work (automatic MOS predictors like UTMOS are an option). We state this honestly."],
+["Voice","How do you guarantee voice and text answer identically?",
+"Both paths call the same generate_answer — 'one brain'. They cannot drift apart."],
+// ---- Fine-tuning ----
+["Fine-tuning","Why RAG instead of fine-tuning Qwen on Djezzy data?",
+"Fine-tuning changes behaviour/form; RAG supplies facts. Prices change daily → FT would bake stale facts into the weights and need constant retraining; there's no labelled Darija set; a free T4 can't train 7B; and FT doesn't stop hallucination. RAG keeps facts current and grounded."],
+["Fine-tuning","Did you fine-tune anything?",
+"No. RAG for knowledge, an 11-rule prompt for behaviour, a brand-primer for STT, and XTTS zero-shot voice cloning — all inference-time adaptation. Fine-tuning is future work for FORM (dialect tone, accent), never for facts."],
+// ---- Theory ----
+["Theory","Explain attention / Q-K-V simply.",
+"Each word sends a Query; every word offers a Key (what it's about) and a Value (its meaning). Attention matches queries to keys — softmax(QKᵀ/√dₖ) — and blends the values. The model weighs all words at once and gets context: 'Legend' becomes the plan, not a hero, from its neighbours."],
+["Theory","Why did Transformers replace RNNs?",
+"RNNs read word-by-word: slow (no parallelism), forget long-range information (vanishing gradient), and can't use future context. Self-attention looks at all words simultaneously and fixes all three."],
+["Theory","What is an embedding?",
+"A piece of text turned into a vector of numbers that captures meaning — similar meanings land as nearby vectors. We use multilingual-e5 so four languages share one meaning space."],
+// ---- Limitations ----
+["Limitations","What is the system's biggest weakness?",
+"The budget route. Djezzy pages mix subscription prices with per-unit tariffs ('5 DA/SMS'), so a naive filter can mistake a rate for an offer price. We skip /unit rates and crédit/bonus amounts — it passes, but stays the soft spot, and we say so plainly."],
+["Limitations","What are the main limitations?",
+"Budget-route data noise; Darija coverage is lexical (unusual spellings may read as French); pure dense retrieval (no reranker); OOD is LLM-judged, not a hard gate; voice not yet WER/MOS-evaluated; and a public Gradio demo tunnel (not production-secure)."],
+["Limitations","Why is XTTS-v2 a problem for production?",
+"Its license is non-commercial (CPML) and Coqui is defunct — fine for an academic thesis, but production should switch to Piper (MIT, has an Arabic voice) plus an Arabic diacritizer. It's flagged in our model-choice audit / future work."],
+["Limitations","What would you do next (future work)?",
+"A rigorous benchmark (baseline + ablation + recall@k + inter-annotator agreement); fine-tune a dialectal embedder; integrate Djezzy back-office APIs; deploy on Djezzy's private infrastructure; harden the budget route; add voice WER/MOS; and move to a production TTS (Piper)."],
+["Misc","What happens when Djezzy changes a price?",
+"A daily scheduler re-scrapes and rebuilds the FAISS index (or a UI button triggers it), hot-swapped into the running app — no retraining. That's the whole point of RAG."],
+];
+
+let order = CARDS.map((_,i)=>i);
+let pos = 0;
+let known = JSON.parse(localStorage.getItem("djz_known")||"{}");
+
+const el = id => document.getElementById(id);
+function save(){ localStorage.setItem("djz_known", JSON.stringify(known)); }
+
+function categories(){
+  const cats = [...new Set(CARDS.map(c=>c[0]))];
+  const sel = el("cat");
+  sel.innerHTML = '<option value="__all">All topics ('+CARDS.length+')</option>' +
+    cats.map(c=>'<option value="'+c+'">'+c+' ('+CARDS.filter(x=>x[0]===c).length+')</option>').join('');
+}
+function activeIdx(){
+  const cat = el("cat").value;
+  return order.filter(i => cat==="__all" || CARDS[i][0]===cat);
+}
+function render(){
+  const idxs = activeIdx();
+  if(pos>=idxs.length) pos=0;
+  if(pos<0) pos=idxs.length-1;
+  const i = idxs[pos];
+  const c = CARDS[i];
+  el("tag").textContent = c[0];
+  el("q").textContent = c[1];
+  el("a").textContent = c[2];
+  el("a").classList.add("hidden");
+  el("grade").style.display="none";
+  el("reveal").style.display="";
+  el("hint").textContent = known[i] ? "✓ marked known" : "";
+  const total = CARDS.length, kn = Object.keys(known).length;
+  el("stats").textContent = kn+" / "+total+" known";
+  el("prog").style.width = (100*kn/total)+"%";
+  el("q").scrollIntoView({block:"nearest"});
+}
+function reveal(){
+  el("a").classList.remove("hidden");
+  el("reveal").style.display="none";
+  el("grade").style.display="flex";
+}
+function grade(isKnown){
+  const i = activeIdx()[pos];
+  if(isKnown) known[i]=1; else delete known[i];
+  save(); next();
+}
+function next(){ pos++; render(); }
+function prev(){ pos--; render(); }
+function shuffle(){ for(let k=order.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[order[k],order[j]]=[order[j],order[k]];} pos=0; render(); }
+
+el("reveal").onclick=reveal;
+el("know").onclick=()=>grade(true);
+el("rev").onclick=()=>grade(false);
+el("next").onclick=next;
+el("prev").onclick=prev;
+el("shuffle").onclick=shuffle;
+el("cat").onchange=()=>{pos=0;render();};
+el("reset").onclick=()=>{ if(confirm("Reset known-progress?")){known={};save();render();} };
+document.addEventListener("keydown",e=>{
+  if(e.key===" "){e.preventDefault(); el("a").classList.contains("hidden")?reveal():next();}
+  else if(e.key==="ArrowRight") next();
+  else if(e.key==="ArrowLeft") prev();
+  else if(e.key==="k") grade(true);
+  else if(e.key==="j") grade(false);
+});
+categories(); render();
+</script>
+</body>
+</html>

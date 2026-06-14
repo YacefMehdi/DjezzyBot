@@ -184,7 +184,7 @@ def _is_refusal(text: str, route: str) -> bool:
     return any(p in t for p in _DECLINE_PHRASES)
 
 
-def eval_ood(vector_db, cap=16):
+def eval_ood(vector_db, cap=12):
     """End-to-end OOD detection (the REAL two-layer guard: score gate + the LLM's
     domain rule), so it needs the index AND the LLM — there is no honest local proxy,
     because by design the score floor rarely fires and the LLM is the actual judge.
@@ -194,15 +194,20 @@ def eval_ood(vector_db, cap=16):
     false-refusal rate — a real customer must never be turned away. Competitor queries
     are excluded (a separate, in-domain refusal scored by routing). Capped at `cap`
     generations (all OOD + a sample of in-domain) so the LLM pass stays a few minutes.
+    Prints per-item progress so a slow-but-working T4 run is never mistaken for a hang.
     """
     oods = [d for d in D if d["ood"]]
     ins = [d for d in D if not d["ood"] and d["route"] != "competitor"]
     items = oods + ins[:max(0, cap - len(oods))]
     pairs = []
-    for d in items:
+    for i, d in enumerate(items, 1):
+        print(f"    [ood {i}/{len(items)}] {d['q'][:38]!r:42s}", end="", flush=True)
         res = bot.generate_answer(d["q"], d["lang"], vector_db)
         refused = _is_refusal(res["text"], res["route"])
-        pairs.append(("ood" if d["ood"] else "in", "ood" if refused else "in"))
+        gold = "ood" if d["ood"] else "in"
+        pred = "ood" if refused else "in"
+        print(f" gold={gold:3s} pred={pred:3s} {'OK' if gold == pred else 'MISS'}", flush=True)
+        pairs.append((gold, pred))
     out = _prf(pairs)
     fr_denom = sum(1 for g, _ in pairs if g == "in")
     false_refusals = sum(1 for g, p in pairs if g == "in" and p == "ood")
@@ -263,22 +268,29 @@ def eval_groundedness(vector_db, subset=None):
         items = items[:subset]
     total_prices = grounded = 0
     answered = 0
-    for d in items:
+    for i, d in enumerate(items, 1):
+        print(f"    [grounded {i}/{len(items)}] {d['q'][:38]!r:42s}", end="", flush=True)
         res = bot.generate_answer(d["q"], d["lang"], vector_db)
         if res["route"] in ("competitor", "no_context"):
+            print(" (refused — skipped)", flush=True)
             continue
         answered += 1
         # rebuild the context the model saw
         docs = smart_retrieve(d["q"], d["lang"], vector_db)
         if docs == config.COMPETITOR_SENTINEL:
+            print(" (competitor — skipped)", flush=True)
             continue
         ctx_prices = set()
         for x in docs:
             ctx_prices |= set(_prices(x.page_content))
+        n_here = g_here = 0
         for p in _prices(res["text"]):
             total_prices += 1
+            n_here += 1
             if p in ctx_prices:
                 grounded += 1
+                g_here += 1
+        print(f" prices {g_here}/{n_here} grounded", flush=True)
     return dict(groundedness=round(grounded / total_prices, 3) if total_prices else None,
                 prices_checked=total_prices, answered=answered)
 
@@ -309,13 +321,15 @@ def run_all(vector_db=None, with_llm=True):
         results["retrieval"] = ret
 
         if with_llm:
+            print("\n### 4–5. LLM sections — ~22 generations (~10–12 min on a free T4).")
+            print("    Live progress below; this is NOT a hang, each line is one generation.")
             ood_res, ood_cm = eval_ood(vector_db)
             _print_prf("4. Out-of-domain (end-to-end: score gate + LLM rule)", ood_res)
             _print_confusion("4. Out-of-domain", ood_cm)
             print(f"  false-refusal rate (real query wrongly refused) = {ood_res['false_refusal_rate']}")
             results["ood"] = ood_res
 
-            gr = eval_groundedness(vector_db, subset=12)
+            gr = eval_groundedness(vector_db, subset=10)
             print(f"\n### 5. Answer groundedness = {gr['groundedness']} "
                   f"({gr['prices_checked']} prices checked over {gr['answered']} answers)")
             results["groundedness"] = gr
