@@ -369,18 +369,31 @@ _GATE_SYSTEM = (
 )
 
 
-def _in_domain(question: str) -> bool:
+def _in_domain(question: str, history: list = None) -> bool:
     """True if `question` is about Djezzy / telecom (answer it), False if off-topic.
 
+    Receives the recent HISTORY so an elliptical follow-up ("c'est combien ?" right
+    after "Parle-moi de Legend") is judged in context and not wrongly refused — without
+    it the gate sees only the bare follow-up and may reject an in-domain question.
     Defaults to True on any ambiguous output, so a real customer is never wrongly
     refused because the classifier hesitated (false-refusals are the costly error)."""
+    ctx = ""
+    if history:
+        lines = []
+        for msg in history[-2:]:            # last exchange is enough to resolve ellipsis
+            who = "Client" if msg["role"] == "user" else "DjezzyBot"
+            lines.append(f"{who} : {msg['content'][:200]}")
+        ctx = "Contexte récent de la conversation :\n" + "\n".join(lines) + "\n\n"
     user = (
-        "La question suivante d'un client concerne-t-elle l'opérateur de téléphonie "
+        f"{ctx}"
+        "La DERNIÈRE question du client concerne-t-elle l'opérateur de téléphonie "
         "algérien Djezzy — ses offres, forfaits, prix, recharge/Flexy, roaming, réseau, "
         "internet, carte SIM, ou un autre service télécom ?\n"
-        "Réponds OUI si le sujet est Djezzy/télécom, NON s'il est hors sujet (météo, "
-        "géographie, capitale, calcul, histoire, sport, blague, culture générale...).\n\n"
-        f"Question : {question}\n\nRéponse (un seul mot, OUI ou NON) :"
+        "Réponds OUI si le sujet est Djezzy/télécom — Y COMPRIS un suivi comme « c'est "
+        "combien ? » ou « et en arabe ? » qui se réfère à une offre déjà évoquée ci-dessus. "
+        "Réponds NON seulement si la question est clairement hors sujet (météo, géographie, "
+        "capitale, calcul, histoire, sport, blague, culture générale...).\n\n"
+        f"Dernière question : {question}\n\nRéponse (un seul mot, OUI ou NON) :"
     )
     messages = [{"role": "system", "content": _GATE_SYSTEM},
                 {"role": "user", "content": user}]
@@ -444,7 +457,7 @@ def generate_answer(question: str, lang: str, vector_db, history: list = None) -
     # full generation. Timed separately so its cost shows up honestly in the latency.
     if route == "normal":
         with timed(stages, "gate"):
-            in_domain = _in_domain(question)
+            in_domain = _in_domain(question, history)
         if not in_domain:
             return {"text": _OOD_REFUSAL.get(lang, _OOD_REFUSAL["fr"]),
                     "route": "out_of_domain",

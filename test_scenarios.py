@@ -243,18 +243,18 @@ def t09_competitor(idx):
 
 
 def t10_out_of_domain(idx):
-    """'la météo?' -> out-of-domain decline, by EITHER refusal layer.
+    """'la météo?' -> out-of-domain decline, by ANY refusal layer.
 
-    Off-domain defense is two-layered (see config.OOD_MIN_SIMILARITY): the score
-    gate kills only the obviously-distant questions, while deceptively-close ones
-    like the weather (which scores INSIDE the real-customer band) pass to the LLM
-    and are declined by its domain-scope rule (bot.SYSTEM_PROMPT rule 1). So this
-    asserts BEHAVIOUR, not which layer acted: the bot must give NO actual weather.
-    Greedy decoding makes the LLM path deterministic, so the negative check is firm.
+    Off-domain defense is two-layered: (1) a similarity SCORE gate kills the
+    obviously-distant questions (route "no_context"); (2) deceptively-close ones like
+    the weather (which score INSIDE the real-customer band) reach the dedicated binary
+    DOMAIN GATE, which refuses them (route "out_of_domain"). A normal-route answer that
+    still verbally declines also counts. So this asserts BEHAVIOUR, not which layer
+    acted: the bot must give NO actual weather. Greedy decoding makes it deterministic.
     """
     r = bot.answer("Quelle est la météo à Alger demain ?", idx)
-    declined_via_gate = r["route"] == "no_context"     # killed at the score gate
-    declined_via_llm = r["route"] == "normal"          # passed gate, LLM refused
+    declined_via_gate = r["route"] in ("no_context", "out_of_domain")  # score gate or domain gate
+    declined_via_llm = r["route"] == "normal"          # reached generation, LLM refused
     is_decline = declined_via_gate or declined_via_llm
     low = r["text"].lower()
     weather_words = ("°", "degré", "température", "ensoleillé", "pluie",
