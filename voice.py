@@ -33,6 +33,14 @@ from bot import generate_answer, detect_language, timed, record_latency
 
 logger = logging.getLogger("djezzybot.voice")
 
+# Coqui XTTS-v2 ships under the CPML license and, the first time the model loads, asks
+# the user to accept it via input(). In a non-interactive Colab/Gradio process there is
+# no stdin, so that prompt raised "EOFError: EOF when reading a line" and killed every
+# voice request. Pre-accepting via this env var (set BEFORE TTS is imported) skips the
+# prompt. The licence permits this research / non-commercial use; a production build
+# would switch to a permissively-licensed voice such as Piper.
+os.environ.setdefault("COQUI_TOS_AGREED", "1")
+
 _stt = None
 _tts = None
 _tts_dir = os.path.join(config.BASE_DIR, "tts_out")
@@ -121,6 +129,7 @@ def load_tts():
         import transformers.pytorch_utils as _ptu
         if not hasattr(_ptu, "isin_mps_friendly"):
             _ptu.isin_mps_friendly = lambda elements, test_elements: torch.isin(elements, test_elements)
+        os.environ.setdefault("COQUI_TOS_AGREED", "1")   # skip the interactive CPML prompt
         from TTS.api import TTS
         logger.info("loading XTTS-v2 (on demand) %s", config.TTS_MODEL_ID)
         _tts = TTS(config.TTS_MODEL_ID).to("cuda" if torch.cuda.is_available() else "cpu")
