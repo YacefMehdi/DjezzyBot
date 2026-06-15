@@ -124,7 +124,12 @@ def transcribe(audio_path: str):
 # TTS — Coqui XTTS-v2 (on-demand)
 # ===========================================================================
 def load_tts():
-    """Load (once, lazily) Coqui XTTS-v2. Called on the first synth, not at boot."""
+    """Load (once, lazily) Coqui XTTS-v2. Called on the first synth, not at boot.
+
+    VRAM-aware on the shared T4: before placing XTTS on the GPU we release the blocks
+    PyTorch cached during Qwen's generation (empty_cache), which usually frees enough
+    contiguous room. If the GPU is still too full we fall back to CPU — slower, but the
+    voice answer always returns instead of dying with 'CUDA out of memory'."""
     global _tts
     if _tts is None:
         import torch
@@ -138,7 +143,22 @@ def load_tts():
         os.environ.setdefault("COQUI_TOS_AGREED", "1")   # skip the interactive CPML prompt
         from TTS.api import TTS
         logger.info("loading XTTS-v2 (on demand) %s", config.TTS_MODEL_ID)
-        _tts = TTS(config.TTS_MODEL_ID).to("cuda" if torch.cuda.is_available() else "cpu")
+        tts = TTS(config.TTS_MODEL_ID)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()                    # reclaim Qwen's cached gen blocks
+            try:
+                tts = tts.to("cuda")
+            except RuntimeError as e:
+                # any CUDA OOM (typed OutOfMemoryError or a generic "out of memory"
+                # RuntimeError from the driver) -> fall back to CPU so voice still works
+                if "out of memory" not in str(e).lower():
+                    raise
+                torch.cuda.empty_cache()
+                logger.warning("XTTS did not fit on the GPU — running TTS on CPU (slower)")
+                tts = tts.to("cpu")
+        else:
+            tts = tts.to("cpu")
+        _tts = tts
     return _tts
 
 

@@ -10,6 +10,17 @@ the same settings.
 import os
 
 # ---------------------------------------------------------------------------
+# CUDA memory — tight 15 GB T4 budget
+# ---------------------------------------------------------------------------
+# Qwen-7B (4-bit) + Whisper-medium + e5 + XTTS-v2 all share one T4. The pieces fit,
+# but PyTorch's default caching allocator fragments the heap, so loading XTTS AFTER
+# Qwen has generated could fail with "CUDA out of memory" on a heap that has enough
+# FREE bytes but no single contiguous block. expandable_segments lets the allocator
+# grow a segment instead of demanding one contiguous slab, which removes that failure.
+# Must be set BEFORE torch initialises CUDA — config is imported before any torch use.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
+# ---------------------------------------------------------------------------
 # Project paths
 # ---------------------------------------------------------------------------
 # BASE_DIR is the folder containing this file. Everything else is relative to it
