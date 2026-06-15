@@ -467,6 +467,39 @@ def _run_scrape_impl() -> list:
     return pages
 
 
+def smoke_test(url: str = None) -> dict:
+    """Render ONE page to verify the Playwright/chromium stack works (Colab-safe).
+
+    A full run_scrape() can take up to CRAWL_MAX_MINUTES; this renders a single page
+    so you can confirm the scraper/daily-refresh will work (e.g. right after installing
+    chromium) in a few seconds. Runs in a worker thread because Colab/Jupyter already
+    have a running asyncio loop, which the Playwright sync API refuses to share.
+    Returns {ok, url, title, chars, error}.
+    """
+    url = url or config.DOMAINS[0].rstrip("/")
+
+    def _go():
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page(user_agent=config.USER_AGENT)
+            try:
+                return scrape_page(page, url)
+            finally:
+                browser.close()
+
+    try:
+        rec = _maybe_thread(_go)
+    except Exception as e:
+        return {"ok": False, "url": url, "title": None, "chars": 0,
+                "error": f"{type(e).__name__}: {e}"}
+    if rec:
+        return {"ok": True, "url": rec["url"], "title": rec["title"],
+                "chars": len(rec["content"]), "error": None}
+    return {"ok": False, "url": url, "title": None, "chars": 0,
+            "error": "page rendered but content too short / empty"}
+
+
 def load_pages() -> list:
     """Load the cached scraped pages from DATA_JSON (empty list if none yet)."""
     if not os.path.exists(config.DATA_JSON):
