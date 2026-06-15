@@ -46,6 +46,38 @@ _ARABIC_RE = re.compile(r"[؀-ۿ]")
 _ARITH_RE = re.compile(r"\d+\s*(?:fois|x|×|\*|\+|/|plus|moins|divis|multipli|%)\s*\d+",
                        re.IGNORECASE)
 
+# Foreign-script characters that never belong in a Djezzy answer (any of our languages):
+# CJK (Chinese/Japanese/Korean) and Cyrillic. Used to build the decode-time token ban below;
+# these token IDs are masked during generation so the model can't code-switch into them.
+_FOREIGN_SCRIPT_RE = re.compile(r"[一-鿿぀-ヿ가-힯Ѐ-ӿ]")
+
+# Brand-token repair — a cheap safety net AFTER the decode-time ban. With Cyrillic tokens
+# forbidden, the mixed-script "دжезzy" can't form; this only catches a residual script-mixed
+# brand token (e.g. partial-byte fragments that slipped the ban) and rebuilds the canonical
+# spelling. Matches any letter run spanning Latin/Cyrillic/Arabic and rewrites it only when it
+# mixes Cyrillic with another script (the corruption signature) — a clean word is untouched.
+_LETTER_RUN_RE = re.compile(r"[A-Za-zЀ-ӿ؀-ۿ]{2,}")
+_CYRILLIC_RE = re.compile(r"[Ѐ-ӿ]")
+_LATIN_RE = re.compile(r"[A-Za-z]")
+
+
+def _repair_brands(text: str, lang: str) -> str:
+    """Rebuild a script-mixed (corrupted) 'Djezzy' token to its canonical spelling.
+
+    Touches ONLY tokens that mix Cyrillic with Latin/Arabic (the corruption signature),
+    so a clean 'Djezzy'/'جيزي' or any normal word is left untouched. Arabic/Darija answers
+    get 'جيزي', Latin-script answers get 'Djezzy'. Microsecond deterministic backstop to the
+    decode-time script ban (no second generation involved)."""
+    canonical = "جيزي" if lang in ("ar", "dz") else "Djezzy"
+
+    def _fix(m):
+        tok = m.group(0)
+        if _CYRILLIC_RE.search(tok) and (_LATIN_RE.search(tok) or _ARABIC_RE.search(tok)):
+            return canonical
+        return tok
+
+    return _LETTER_RUN_RE.sub(_fix, text)
+
 
 # ===========================================================================
 # Latency store (shared across the whole test run)
@@ -105,6 +137,7 @@ def load_llm():
     # max_new_tokens=768 and makes transformers warn on every generate(). Drop it
     # so only max_new_tokens governs the cap (behaviour unchanged, warning gone).
     _model.generation_config.max_length = None
+    _build_script_ban(_tokenizer)        # one-time: vocab IDs to forbid at decode time
     return _model, _tokenizer
 
 
@@ -340,8 +373,58 @@ def build_prompt(question: str, context: str, lang: str, history: list,
 # ===========================================================================
 # Generation
 # ===========================================================================
+# Foreign-script ban (the real fix for Qwen's code-switch). Rather than detect a Chinese/
+# Cyrillic answer after the fact and regenerate (a wasted second pass with unpredictable
+# latency), we forbid those tokens AT DECODE TIME: a LogitsProcessor sets the logit of every
+# CJK/Cyrillic vocabulary token to -inf before each pick, so greedy literally cannot select
+# one and is forced to the next-best (correct-script) token. Zero extra latency, still fully
+# greedy/deterministic, and the mangled "دжезzy" can't even form. The banned-ID list is built
+# once at model load by scanning the tokenizer vocabulary.
+_BANNED_SCRIPT_IDS = None      # list[int], populated by _build_script_ban
+_SCRIPT_GUARD = None           # cached LogitsProcessorList
+
+
+def _build_script_ban(tokenizer) -> None:
+    """Find every vocab token that decodes to a CJK or Cyrillic character (built once).
+
+    These scripts never legitimately appear in a Djezzy answer in ANY of our languages
+    (Arabic, French, English, Darija-as-MSA), so suppressing them is language-independent
+    and safe. ~151k tokens scanned at load; the resulting ID list is cached for reuse."""
+    global _BANNED_SCRIPT_IDS, _SCRIPT_GUARD
+    if _BANNED_SCRIPT_IDS is not None:
+        return
+    strs = tokenizer.batch_decode([[i] for i in range(len(tokenizer))])
+    _BANNED_SCRIPT_IDS = [i for i, s in enumerate(strs) if s and _FOREIGN_SCRIPT_RE.search(s)]
+    _SCRIPT_GUARD = None         # rebuilt lazily on first generate (needs torch + device)
+    logger.info("script ban: forbidding %d CJK/Cyrillic tokens at decode time",
+                len(_BANNED_SCRIPT_IDS))
+
+
+def _script_guard():
+    """The cached LogitsProcessorList that masks the banned tokens (lazy, needs torch)."""
+    global _SCRIPT_GUARD
+    if _SCRIPT_GUARD is None:
+        import torch
+        from transformers import LogitsProcessor, LogitsProcessorList
+
+        banned = torch.tensor(_BANNED_SCRIPT_IDS or [], dtype=torch.long)
+
+        class _SuppressScripts(LogitsProcessor):
+            def __call__(self, input_ids, scores):
+                if banned.numel():
+                    scores[:, banned.to(scores.device)] = float("-inf")
+                return scores
+
+        _SCRIPT_GUARD = LogitsProcessorList([_SuppressScripts()])
+    return _SCRIPT_GUARD
+
+
 def _generate_n(prompt: str, max_new_tokens: int) -> str:
-    """Greedy generation (do_sample=False), capped at `max_new_tokens`."""
+    """Greedy generation (do_sample=False), capped at `max_new_tokens`.
+
+    CJK/Cyrillic tokens are masked out at decode time (see _build_script_ban), so the
+    output can never contain a code-switch to Chinese/Russian — no post-hoc scan or
+    regeneration needed."""
     import torch
     model, tokenizer = load_llm()
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
@@ -352,6 +435,7 @@ def _generate_n(prompt: str, max_new_tokens: int) -> str:
             do_sample=config.DO_SAMPLE,
             repetition_penalty=config.REPETITION_PENALTY,
             pad_token_id=tokenizer.eos_token_id,
+            logits_processor=_script_guard(),
         )
     gen = out[0][inputs["input_ids"].shape[1]:]
     return tokenizer.decode(gen, skip_special_tokens=True).strip()
@@ -360,6 +444,15 @@ def _generate_n(prompt: str, max_new_tokens: int) -> str:
 def _generate(prompt: str) -> str:
     """Greedy generation of a full answer (do_sample=False)."""
     return _generate_n(prompt, config.MAX_NEW_TOKENS)
+
+
+def _generate_clean(question: str, context: str, lang: str, history: list,
+                    budget: int, route: str) -> str:
+    """Generate an answer (CJK/Cyrillic already forbidden at decode time), then run the
+    microsecond _repair_brands net to canonicalise any brand token that slipped. No second
+    pass, no sampling — latency is identical to a plain generation."""
+    prompt = build_prompt(question, context, lang, history, budget, route)
+    return _repair_brands(_generate(prompt), lang)
 
 
 # ===========================================================================
@@ -483,9 +576,8 @@ def generate_answer(question: str, lang: str, vector_db, history: list = None) -
 
     budget = budget_of(question)        # hard ceiling, non-None only on the budget route
     context = _format_context(docs)
-    prompt = build_prompt(question, context, lang, history, budget, route)
     with timed(stages, "generation"):
-        text = _generate(prompt)
+        text = _generate_clean(question, context, lang, history, budget, route)
 
     return {"text": text, "route": route,
             "t_retrieval": stages["retrieval"], "t_generation": stages["generation"]}
