@@ -40,4 +40,4 @@ langdetect>=1.0.9
 schedule>=1.2
 
 # --- UI ---
-gradio>=4.44
+gradio>=5.0          # upgraded from 4.x: newer audio recorder fixes the mic widget quirks
