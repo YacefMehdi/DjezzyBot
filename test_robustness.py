@@ -35,7 +35,7 @@ import logging
 import config
 import bot
 import retriever
-from retriever import smart_retrieve, _chunk_price
+from retriever import smart_retrieve, classify_route, _chunk_price
 
 # reuse the acceptance suite's vetted helpers so the two suites judge identically
 from test_scenarios import (
@@ -353,6 +353,31 @@ def r25_roaming_tunisia(idx):
     return ok, f"roaming_ctx={'roaming' in blob} n_docs={len(docs)}"
 
 
+def r26_roaming_egypt_arabic(idx):
+    """LIVE regression: 'عندكم عرض تاع مصر ؟' (an Egypt ROAMING offer) must route to
+    roaming and be answered — not refused. Arabic country names were missing from the
+    roaming triggers, so it fell to the normal route and the gate refused it."""
+    q = "عندكم عرض تاع مصر؟"
+    route = classify_route(q)
+    docs = smart_retrieve(q, "ar", idx)
+    if docs == config.COMPETITOR_SENTINEL:
+        return False, "unexpected competitor route"
+    blob = " ".join(d.page_content.lower() + " " +
+                    d.metadata.get("source_url", "").lower() for d in docs)
+    ok = route == "roaming" and ("roaming" in blob or "egypt" in blob
+                                 or "مصر" in blob or "تجوال" in blob)
+    return ok, f"route={route} roaming_ctx={'roaming' in blob} n_docs={len(docs)}"
+
+
+def r27_5g_activation_arabic(idx):
+    """LIVE regression: 'كيف افعل الجيل الخامس' (how to activate 5G) is in-domain and
+    must be ANSWERED, not refused — the gate used to reject this legitimate question."""
+    r = bot.answer("كيف افعل الجيل الخامس", idx)
+    refused = r["route"] in ("out_of_domain", "no_context", "competitor")
+    ok = (not refused) and len(r["text"].strip()) > 0
+    return ok, f"route={r['route']} refused={refused} :: {r['text'][:60]}"
+
+
 SCENARIOS = [
     # Group A — cross-lingual route coverage
     ("r01", "budget intent in Arabic",            "ar", "budget",       r01_budget_arabic),
@@ -384,6 +409,9 @@ SCENARIOS = [
     ("r23", "named offer Confort, no mixing",     "fr", "named-offer",  r23_named_confort),
     ("r24", "budget intent in Darija",            "dz", "budget",       r24_budget_darija),
     ("r25", "roaming Tunisia (French)",           "fr", "roaming",      r25_roaming_tunisia),
+    # Group F — live-use regressions (false-refusal of in-domain Arabic questions)
+    ("r26", "roaming Egypt in Arabic",            "ar", "roaming",      r26_roaming_egypt_arabic),
+    ("r27", "5G activation in Arabic answered",   "ar", "normal",       r27_5g_activation_arabic),
 ]
 
 

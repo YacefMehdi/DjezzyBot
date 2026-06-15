@@ -299,7 +299,11 @@ def build_prompt(question: str, context: str, lang: str, history: list,
             f"Si AUCUNE offre du contexte ne coûte {budget} DA ou moins, dis clairement "
             f"qu'aucune offre n'est disponible à ce budget et invite le client à "
             f"augmenter son budget — ne propose JAMAIS, même à titre indicatif, une "
-            f"offre dont le prix dépasse {budget} DA.\n\n"
+            f"offre dont le prix dépasse {budget} DA. "
+            f"N'AJOUTE JAMAIS une offre ou un prix qui n'apparaît pas EXPLICITEMENT dans "
+            f"le contexte ci-dessus : n'invente pas d'offre « premium » ou plus chère, ne "
+            f"la suggère pas en comparaison, ne cite que ce qui est écrit dans le "
+            f"contexte.\n\n"
         )
     user_turn = (
         f"{hist}"
@@ -451,11 +455,12 @@ def generate_answer(question: str, lang: str, vector_db, history: list = None) -
                 "route": "no_context",
                 "t_retrieval": stages["retrieval"], "t_generation": 0.0}
 
-    # OOD domain gate (second layer): only the catch-all NORMAL route can be off-topic
-    # — the other routes matched a concrete Djezzy cue (offer name / budget / roaming).
-    # A focused yes/no classification refuses what the inline rule let slip, without a
-    # full generation. Timed separately so its cost shows up honestly in the latency.
-    if route == "normal":
+    # OOD domain gate (optional second layer): only the catch-all NORMAL route can be
+    # off-topic — the other routes matched a concrete Djezzy cue (offer / budget / roaming).
+    # DISABLED by default (config.OOD_GATE_ENABLED): it lifted offline OOD recall to 1.0
+    # but false-refused in-domain Arabic/Darija questions in live use, and turning a real
+    # customer away is the worse error here. Rule 1 + the similarity floor stay in charge.
+    if route == "normal" and config.OOD_GATE_ENABLED:
         with timed(stages, "gate"):
             in_domain = _in_domain(question, history)
         if not in_domain:

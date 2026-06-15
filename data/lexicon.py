@@ -172,6 +172,19 @@ ROAMING_TRIGGERS = {
     "maroc": ["maroc"],
     "dubai": ["emirats", "dubai"],
     "emirats": ["emirats", "dubai"],
+    # Arabic country names (a customer asking "عرض تاع مصر ?" = an Egypt ROAMING offer).
+    # These only count as roaming when paired with a roaming/travel/offer cue (see
+    # retriever._roaming_markers), so "ما هي عاصمة فرنسا؟" stays out-of-domain.
+    "مصر": ["egypte"],
+    "تونس": ["tunisie"],
+    "فرنسا": ["france"],
+    "تركيا": ["turquie"],
+    "المغرب": ["maroc"],
+    "اسبانيا": ["espagne"],
+    "إسبانيا": ["espagne"],
+    "السعودية": ["hadj", "omra"],
+    "الإمارات": ["emirats", "dubai"],
+    "دبي": ["emirats", "dubai"],
 }
 # Generic roaming words that, combined with a travel cue, also mean roaming.
 ROAMING_GENERIC = ["roaming", "étranger", "etranger", "international"]

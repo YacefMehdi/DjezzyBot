@@ -150,6 +150,17 @@ COMPETITOR_SENTINEL = "COMPETITOR"
 # Any value in [0, ~0.74] is behaviourally identical here — 0.70 just keeps a tiny tripwire.
 OOD_MIN_SIMILARITY = 0.70
 
+# Dedicated binary "is this about Djezzy?" gate (bot._in_domain), run on the NORMAL
+# route before generating. In OFFLINE eval it lifted OOD recall 0.20 -> 1.00 with a
+# 0.0 false-refusal rate on the labelled set — but LIVE multilingual testing exposed
+# false refusals on perfectly in-domain Arabic/Darija questions whose wording carries
+# no recognised telecom token ("كيف افعل الجيل الخامس" = how to activate 5G;
+# "عندكم عرض تاع مصر ؟" = an Egypt roaming offer). Refusing a real customer is the
+# costly error for a service assistant, so the gate is DISABLED by default; rule 1 +
+# the similarity floor remain the OOD defence. Flip to True to reproduce the gated
+# numbers (the thesis reports both the offline gain and this live failure mode).
+OOD_GATE_ENABLED = False
+
 # ---------------------------------------------------------------------------
 # Voice
 # ---------------------------------------------------------------------------

@@ -88,15 +88,33 @@ def _is_budget_query(query: str) -> bool:
     return any(cue in q for cue in lexicon.BUDGET_TRIGGERS)
 
 
+# Pilgrimage destinations are travel by nature → roaming on their own (no cue needed).
+_INHERENT_ROAMING = {"hadj", "omra", "pèlerinage", "pelerinage", "حج", "عمرة"}
+# A plain country name only means roaming when paired with one of these cues, so a
+# geography question ("ما هي عاصمة فرنسا؟") does NOT misroute to roaming, while an
+# offer/travel question ("عرض تاع مصر ?", "je voyage en Tunisie") does.
+_ROAMING_CONTEXT_CUES = ("roaming", "تجوال", "رومينغ", "offre", "offres",
+                         "forfait", "forfaits", "عرض", "عروض")
+
+
 def _roaming_markers(query: str):
-    """Return roaming destination markers if this is a roaming query, else None."""
+    """Return roaming destination markers if this is a roaming query, else None.
+
+    A destination from ROAMING_TRIGGERS counts as roaming when it is a pilgrimage term
+    (inherent travel) OR when the query also carries a roaming/travel/offer cue. A bare
+    country mention with no such cue is NOT roaming — that is what keeps "capital of
+    France" out of the roaming route and in the out-of-domain path.
+    """
     q = query.lower()
-    markers = []
-    for dest, marks in lexicon.ROAMING_TRIGGERS.items():
-        if dest in q:
-            markers.extend(marks)
-    if markers:
-        return list(dict.fromkeys(markers))  # dedup, keep order
+    hits = [(dest, marks) for dest, marks in lexicon.ROAMING_TRIGGERS.items() if dest in q]
+    if hits:
+        if any(d in _INHERENT_ROAMING for d, _ in hits):
+            return list(dict.fromkeys(m for _, ms in hits for m in ms))
+        cue = (any(g in q for g in lexicon.ROAMING_GENERIC)
+               or any(c in q for c in lexicon.ROAMING_TRAVEL_CUES)
+               or any(c in q for c in _ROAMING_CONTEXT_CUES))
+        if cue:
+            return list(dict.fromkeys(m for _, ms in hits for m in ms))
     # generic "roaming/étranger" + a travel cue
     if any(g in q for g in lexicon.ROAMING_GENERIC) and \
             any(c in q for c in lexicon.ROAMING_TRAVEL_CUES):
