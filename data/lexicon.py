@@ -233,14 +233,21 @@ COMPARISON_TRIGGERS = [
 # Darija markers (for language detection: detect dz before falling back to fr)
 # ---------------------------------------------------------------------------
 DARIJA_WORDS = {
-    "bghit", "nhab", "nchri", "bezaf", "barcha", "chhal", "kifash", "kayen",
-    "wesh", "wech", "win", "3andi", "andi", "3tini", "3la", "eddir", "ndir",
-    "khlass", "sahbi", "khoya", "mlih", "labas", "wahed", "zouj", "hadi",
+    "bghit", "nhab", "nchri", "bezaf", "barcha", "chhal", "kifash", "kifach",
+    "kayen", "wesh", "wech", "win", "3andi", "andi", "3tini", "3la", "eddir",
+    "ndir", "khlass", "sahbi", "khoya", "mlih", "labas", "wahed", "zouj", "hadi",
     "hada", "ki", "rani", "raki", "wash", "chwiya", "daba",
     # Arabizi spellings using digits for Arabic letters (7=ح, 9=ق, 3=ع): the
     # "how much" word is commonly typed "ch7al"/"che7al"/"ch9al", which the plain
     # "chhal" entry missed -> the question was misdetected as French.
     "ch7al", "che7al", "ch9al", "ch7all", "kch7al",
+    # More Latin-script Darija markers seen live: "Wach 3andkom les offres?" and
+    # "wachno homa les offres li 3ndkom?" had NO matching token, so they fell
+    # through to langdetect and were answered in English instead of MSA Arabic.
+    # These are distinctive Darija words (not French/English), safe to key on.
+    "wach", "wachno", "wechno", "weshno", "achno", "wachnou", "chnou",
+    "homa", "houma", "3andkom", "3andkoum", "3ndkom", "andkom", "ndkom",
+    "3andek", "3andkm", "kayna", "kaynin", "rahom", "rahum",
 }
 
 # ---------------------------------------------------------------------------

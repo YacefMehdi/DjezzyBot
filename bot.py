@@ -234,8 +234,13 @@ _NO_CONTEXT = {
 _LANG_DIRECTIVE = {
     "fr": "Réponds entièrement en français.",
     "en": "Reply entirely in English.",
-    "ar": "أجب بالكامل باللغة العربية الفصحى.",
-    "dz": "أجب بالكامل باللغة العربية الفصحى (المعيارية)، حتى لو كان السؤال بالدارجة.",
+    "ar": "أجب بالكامل باللغة العربية الفصحى. اكتب أسماء العروض واسم المشغّل بالحروف "
+          "اللاتينية كما هي تمامًا (Djezzy, iZZY, Legend, Flexy, Zid, Cam Puce, Confort...) "
+          "ولا تنقلها أبدًا إلى الحروف العربية.",
+    "dz": "أجب بالكامل باللغة العربية الفصحى (المعيارية)، حتى لو كان السؤال بالدارجة. "
+          "اكتب أسماء العروض واسم المشغّل بالحروف اللاتينية كما هي تمامًا "
+          "(Djezzy, iZZY, Legend, Flexy, Zid, Cam Puce, Confort...) ولا تنقلها أبدًا "
+          "إلى الحروف العربية.",
 }
 
 # Per-INTENT presentation directive — chosen from the route, so the answer's level
