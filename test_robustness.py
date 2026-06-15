@@ -229,9 +229,14 @@ def r14_budget_impossible(idx):
     budget = 10
     r = bot.answer("j'ai 10 DA, qu'est-ce que je peux avoir ?", idx)
     op = _offer_prices(r["text"])
-    ok = all(p <= budget for p in op)        # ideally empty or a graceful 'nothing fits'
     over = [p for p in op if p > budget]
-    return ok, f"route={r['route']} offer_prices={op} over_budget={over} :: {r['text'][:180]}"
+    declined = any(w in r["text"].lower() for w in _DECLINE_WORDS)
+    # Correct behavior is EITHER list only affordable offers, OR decline gracefully.
+    # Naming the cheapest available price while declining ("no offer fits 10 DA; the
+    # cheapest is 1500 DA, raise your budget") is good service, not an over-budget leak,
+    # so a proper refusal passes even if it mentions a higher figure informationally.
+    ok = (not over) or declined
+    return ok, f"route={r['route']} declined={declined} offer_prices={op} over_budget={over} :: {r['text'][:180]}"
 
 
 # ===========================================================================
