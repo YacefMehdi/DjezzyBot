@@ -16,6 +16,7 @@ Run:  python app.py
 """
 
 import logging
+import traceback
 
 import config
 import scraper
@@ -146,7 +147,18 @@ def on_voice(audio_path, chat_history):
                                      "Cliquez sur « Rafraîchir »."}]
         return chat_history, None
     prior = _history_to_messages(chat_history)
-    result = voice.voice_answer(audio_path, STATE["index"], prior)
+    try:
+        result = voice.voice_answer(audio_path, STATE["index"], prior)
+    except Exception as e:
+        # Gradio shows only a generic "erreur"; surface the REAL error (type + message
+        # + the failing stage) into the chat AND the server log so it can be diagnosed
+        # without hunting the Colab cell output.
+        logging.getLogger("djezzybot.app").exception("voice path failed")
+        tb = traceback.format_exc().strip().splitlines()
+        where = tb[-1] if tb else f"{type(e).__name__}: {e}"
+        chat_history += [{"role": "assistant",
+                          "content": f"⚠️ Erreur vocale — {where}"}]
+        return chat_history, None
     chat_history += [
         {"role": "user", "content": f"🎙️ {result['transcription']}"},
         {"role": "assistant", "content": result["text"]},
