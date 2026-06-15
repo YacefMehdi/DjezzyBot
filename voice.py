@@ -145,6 +145,18 @@ def load_tts():
 # Number-to-words + abbreviation expansion so XTTS speaks naturally.
 _TTS_NUM_LANG = {"fr": "fr", "en": "en", "ar": "ar", "dz": "ar"}
 
+# Arabic pronunciations of the Latin brand/offer names. The TEXT keeps them in Latin
+# (system-prompt rule 9), but the Arabic VOICE must say them — and, just as important,
+# any Latin (or Qwen's occasional Cyrillic corruption of "Djezzy") left in an Arabic
+# string makes the XTTS Arabic phonemizer choke and cut the audio off mid-answer. So for
+# ar/dz we transliterate the names we know, then strip whatever foreign letters remain.
+_TTS_BRAND_AR = {
+    "djezzy": "جيزي", "izzy": "إيزي", "legend": "ليجند", "campuce": "كام بوس",
+    "cam puce": "كام بوس", "zid": "زيد", "confort": "كونفور", "flexy": "فليكسي",
+    "hayla": "هايلة", "mobilis": "موبيليس", "ooredoo": "أوريدو", "max": "ماكس",
+    "pro": "برو", "control": "كنترول", "djezzy5g": "جيزي فايف جي",
+}
+
 
 def _expand_for_tts(text: str, lang: str) -> str:
     """Turn written telecom text into naturally SPEAKABLE text (one layer, by class).
@@ -211,7 +223,19 @@ def _expand_for_tts(text: str, lang: str) -> str:
             return num2words(int(m.group(0)), lang=nlang)
         except Exception:
             return m.group(0)
-    return re.sub(r"\d+", _num, text)
+    text = re.sub(r"\d+", _num, text)
+
+    # 6) (ar/dz) say the brand names, then remove any foreign-script residue so the
+    # Arabic voice does not choke and truncate. Brands are transliterated first; the
+    # remaining Latin (unknown/garbled names) and Cyrillic (Qwen's "دжеزzy" glitch) are
+    # stripped. fr/en keep their Latin text untouched.
+    if lang in ("ar", "dz"):
+        for k, v in _TTS_BRAND_AR.items():
+            text = re.sub(rf"\b{re.escape(k)}\b", v, text, flags=re.IGNORECASE)
+        text = re.sub(r"[Ѐ-ӿ]+", " ", text)   # Cyrillic look-alikes (corruption)
+        text = re.sub(r"[A-Za-z]+", " ", text)          # leftover / garbled Latin
+        text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
 
 
 def synthesize(text: str, lang: str) -> str:
