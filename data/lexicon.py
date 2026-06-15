@@ -347,6 +347,10 @@ TELECOM_SIGNALS = [
     # like "هل تبيعون هواتف؟" reach retrieval instead of the out-of-domain refusal.
     "عرض", "عروض", "انترنت", "رصيد", "سعر", "اسعار", "مكالمات", "باقة", "جيجا", "روم",
     "هاتف", "هواتف", "تليفون", "تيليفون", "جوال", "موبايل", "فون", "شريحة", "خط",
+    # 5G / activation / recharge / Flexy in Arabic — in-domain questions whose wording
+    # carries no other telecom token (e.g. "كيف افعل الجيل الخامس" = how to activate 5G),
+    # which the OOD gate used to wrongly refuse.
+    "الجيل الخامس", "تفعيل", "تعبئة", "فليكسي", "volte",
 ]
 
 _TELECOM_ASCII_RE = [

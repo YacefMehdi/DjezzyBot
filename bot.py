@@ -40,6 +40,12 @@ _tokenizer = None
 # Arabic letters (used by language detection).
 _ARABIC_RE = re.compile(r"[؀-ۿ]")
 
+# A bare arithmetic query ("combien font 24 fois 7 ?", "24 x 7"). The word "combien" is
+# a telecom cue (it keeps "combien coûte X" in domain), so without this an arithmetic
+# question would skip the OOD gate; we force it through the gate instead.
+_ARITH_RE = re.compile(r"\d+\s*(?:fois|x|×|\*|\+|/|plus|moins|divis|multipli|%)\s*\d+",
+                       re.IGNORECASE)
+
 
 # ===========================================================================
 # Latency store (shared across the whole test run)
@@ -461,13 +467,19 @@ def generate_answer(question: str, lang: str, vector_db, history: list = None) -
     # but false-refused in-domain Arabic/Darija questions in live use, and turning a real
     # customer away is the worse error here. Rule 1 + the similarity floor stay in charge.
     if route == "normal" and config.OOD_GATE_ENABLED:
-        with timed(stages, "gate"):
-            in_domain = _in_domain(question, history)
-        if not in_domain:
-            return {"text": _OOD_REFUSAL.get(lang, _OOD_REFUSAL["fr"]),
-                    "route": "out_of_domain",
-                    "t_retrieval": stages["retrieval"], "t_generation": 0.0,
-                    "t_gate": stages["gate"]}
+        # Run the gate ONLY on signal-less queries: anything carrying a telecom / offer /
+        # device cue (has_telecom_signal) is trusted in-domain and skips the gate, so a
+        # real question is never refused for lacking a recognised phrase. An explicit
+        # arithmetic query is gated even though "combien" counts as a cue.
+        skip_gate = lexicon.has_telecom_signal(question) and not _ARITH_RE.search(question)
+        if not skip_gate:
+            with timed(stages, "gate"):
+                in_domain = _in_domain(question, history)
+            if not in_domain:
+                return {"text": _OOD_REFUSAL.get(lang, _OOD_REFUSAL["fr"]),
+                        "route": "out_of_domain",
+                        "t_retrieval": stages["retrieval"], "t_generation": 0.0,
+                        "t_gate": stages["gate"]}
 
     budget = budget_of(question)        # hard ceiling, non-None only on the budget route
     context = _format_context(docs)

@@ -151,15 +151,15 @@ COMPETITOR_SENTINEL = "COMPETITOR"
 OOD_MIN_SIMILARITY = 0.70
 
 # Dedicated binary "is this about Djezzy?" gate (bot._in_domain), run on the NORMAL
-# route before generating. In OFFLINE eval it lifted OOD recall 0.20 -> 1.00 with a
-# 0.0 false-refusal rate on the labelled set — but LIVE multilingual testing exposed
-# false refusals on perfectly in-domain Arabic/Darija questions whose wording carries
-# no recognised telecom token ("كيف افعل الجيل الخامس" = how to activate 5G;
-# "عندكم عرض تاع مصر ؟" = an Egypt roaming offer). Refusing a real customer is the
-# costly error for a service assistant, so the gate is DISABLED by default; rule 1 +
-# the similarity floor remain the OOD defence. Flip to True to reproduce the gated
-# numbers (the thesis reports both the offline gain and this live failure mode).
-OOD_GATE_ENABLED = False
+# route before generating. EARLIER it was disabled because, run on every normal query,
+# it false-refused in-domain Arabic/Darija questions with no recognised telecom token
+# ("كيف افعل الجيل الخامس" = how to activate 5G). It is now re-enabled in a SAFER form
+# (see bot.generate_answer): it runs ONLY on signal-less queries — anything carrying a
+# telecom/offer/device cue (lexicon.has_telecom_signal, now incl. 5G / activation /
+# Flexy in Arabic) skips the gate, and the Egypt-offer case routes to roaming instead.
+# This aims to recover the high OOD recall WITHOUT refusing real customers; the eval
+# harness measures both. If any in-domain question is wrongly refused, set this False.
+OOD_GATE_ENABLED = True
 
 # ---------------------------------------------------------------------------
 # Voice
