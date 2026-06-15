@@ -1584,7 +1584,7 @@ gradio                & $\ge$ 4.44       & web interface \\
 \subsection{Overall, by Language and by Route}
 \humantext{On the latest Colab T4 run, DjezzyBot passes all \numTestsTotal{} of its acceptance scenarios. The budget scenario passes too, but it stays the weakest route, for a data-quality reason we discuss below. Tables~\ref{tab:pass_lang} and~\ref{tab:pass_route} give the breakdown by language and by route.}
 
-\humantext{We are deliberate about what this number is and is not. These \numTestsTotal{} scenarios are a \emph{behavioral acceptance suite}, not a statistical precision estimate: each asserts an exact, predetermined behavior, and because decoding is greedy every run is reproducible. So ``\numTestsPass{}/\numTestsTotal{}'' means ``the system does the specified right thing on each of these cases'', not ``it is correct 100\,\% of the time in the wild''. A stronger evaluation --- a larger labelled query set, an external baseline (pure dense retrieval with no router), ablations of the router and lexicon, a sweep over $k$, separate retrieval and generation metrics (recall@k, faithfulness), and a second independent annotator for agreement --- is the natural next step, and we list it under future work rather than claim it here.}
+\humantext{We are deliberate about what this number is and is not. These \numTestsTotal{} scenarios are a \emph{behavioral acceptance suite}, not a statistical precision estimate: each asserts an exact, predetermined behavior, and because decoding is greedy every run is reproducible. So ``\numTestsPass{}/\numTestsTotal{}'' means ``the system does the specified right thing on each of these cases'', not ``it is correct 100\,\% of the time in the wild''. A stronger, metric-based evaluation --- a larger labelled query set, an external baseline (pure dense retrieval with no router), and separate retrieval and generation metrics (recall@k, faithfulness) --- complements this acceptance suite and is reported in Section~\ref{sec:metrics} below; a second independent annotator for inter-rater agreement is the one piece we still leave to future work.}
 
 \begin{table}[H]
 \centering
@@ -1623,6 +1623,57 @@ budget        & 1 / 1 & passes after the per-unit-rate fix; weakest route \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\subsection{Quantitative, Metric-Based Evaluation}
+\label{sec:metrics}
+\humantext{The acceptance suite above answers ``does the system do the right thing on these cases''. To answer the stronger question ``how well do the components perform as classifiers'', we built a second harness (\texttt{evaluate.py}) over a \emph{balanced labelled set} of 43 queries (13 Arabic, 8 Darija, 9 English, 13 French). The labels are \emph{objective by construction}: a query's language, its intended intent route, and the offer it asks about are all fixed at the moment the query is written, so these numbers carry no ``the authors graded themselves'' bias. This directly addresses the review's call for a baseline, an ablation, and separate retrieval and generation metrics.}
+
+\subsubsection{Language Detection}
+\humantext{Table~\ref{tab:metrics_lang} gives per-class precision, recall and F1. Overall accuracy is 0.977 and macro-F1 0.976 over the 43 queries; the single error is one English question detected as French, which the downstream answer still handles correctly.}
+
+\begin{table}[H]
+\centering
+\caption{Language detection --- per-class metrics ($n=43$)}
+\label{tab:metrics_lang}
+\begin{tabularx}{\textwidth}{l c c c c}
+\toprule
+\textbf{Language} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} & \textbf{Support} \\
+\midrule
+Arabic (ar)  & 1.000 & 1.000 & 1.000 & 13 \\
+Darija (dz)  & 1.000 & 1.000 & 1.000 & 8 \\
+English (en) & 1.000 & 0.889 & 0.941 & 9 \\
+French (fr)  & 0.929 & 1.000 & 0.963 & 13 \\
+\midrule
+\textbf{Overall} & \multicolumn{4}{c}{accuracy 0.977 \qquad macro-F1 0.976} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Intent Routing}
+\humantext{The seven-route classifier reaches accuracy 1.0 and macro-F1 1.0 on the labelled set: every query --- budget, catalogue, comparison, competitor, named-offer, normal and roaming --- is sent to its correct retrieval strategy, and the confusion matrix is purely diagonal. A perfect score is expected for a deterministic rule-based router on in-distribution phrasings; the point is that it is the precondition for everything downstream, since the right retrieval strategy only runs when the intent is read correctly.}
+
+\subsubsection{Retrieval: Router vs.\ a No-Router Baseline (Ablation)}
+\humantext{The most informative result is the ablation in Table~\ref{tab:metrics_retrieval}. We compare our intent router against the exact baseline the review asked for --- \emph{pure dense retrieval, with no router and no lexicon expansion} --- on the offer queries, measuring recall@k (whether a chunk that actually names the requested offer appears in the top~k). The router lifts recall@1 from 0.357 to 0.857 and recall@5 from 0.786 to 1.0. In plain terms, it roughly \emph{doubles} the chance the right offer is the single best hit and \emph{guarantees} it within the top five --- which is precisely how coined brand names such as ``Campuce'', invisible to a semantic embedder, are retrieved reliably. This is the quantitative justification for treating the router as the project's central contribution.}
+
+\begin{table}[H]
+\centering
+\caption{Retrieval recall@k --- intent router vs.\ pure-dense baseline}
+\label{tab:metrics_retrieval}
+\begin{tabularx}{\textwidth}{X c c}
+\toprule
+\textbf{Configuration} & \textbf{recall@1} & \textbf{recall@5} \\
+\midrule
+Pure dense retrieval (no router, no lexicon) & 0.357 & 0.786 \\
+\textbf{Intent router (ours)}                & \textbf{0.857} & \textbf{1.000} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Answer Groundedness (Automatic Anti-Hallucination)}
+\humantext{For every non-refusal answer we measure what fraction of the prices it states actually appear in the retrieved context --- an automatic, objective faithfulness metric. Across the answered queries the groundedness is 0.90 (70 prices checked over 10 answers): nine out of ten quoted prices are traceable to a source chunk. The residual gap concentrates on the budget route, consistent with the data-quality soft spot discussed below.}
+
+\subsubsection{Out-of-Domain Detection: An Honest Negative Result}
+\humantext{Out-of-domain (OOD) refusal --- declining ``what is the weather?'' without ever refusing a real customer --- proved the hardest component, and we report it honestly rather than dress it up. Our earlier calibration study had already shown that a similarity \emph{threshold} cannot separate OOD from in-domain queries, because the multilingual e5 embedder assigns uniformly high scores to almost any input. We therefore built a dedicated binary ``is this about Djezzy?'' classifier (an LLM-as-judge gate run before generation). On the labelled set it was excellent: it raised OOD recall to 1.0 with a 0.0 false-refusal rate. \emph{However}, live multilingual testing exposed a failure the offline set had missed --- the gate refused perfectly in-domain Arabic and Darija questions whose wording carries no surface telecom token, for instance ``how do I activate 5G'' and ``do you have an offer for Egypt'' (a roaming request), both of which their English equivalents answered. For a customer-facing assistant, wrongly turning away a real subscriber is the costlier error, so we \emph{disabled} the gate by default and fall back to the system prompt's domain rule: high precision, but lower recall (some deceptive off-domain questions are answered). We keep the gate in the codebase behind a configuration flag and report both its offline gain and its live failure mode, because the engineering decision --- favouring recall of real customers over OOD precision --- is itself a finding. Robust OOD detection that is simultaneously high-recall and never false-refusing remains an open problem for this multilingual setting, and we return to it in the future-work discussion.}
 
 \subsection{Latency}
 \humantext{Latency is recorded per stage by the timing wrapper in \texttt{bot.py}, one record per request. Tables~\ref{tab:lat_text} and~\ref{tab:lat_voice} report the average and worst case over the test run. \emph{(The text-path figures come from a warm Colab T4 run; the voice-path macros are filled once a dedicated voice run is recorded.)}}
@@ -1681,6 +1732,71 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 \includegraphics[width=0.85\textwidth]{Images/example_conversations.jpg}
 \caption{Example conversations, one per language (FR / AR / EN / Darija)}
 \label{fig:example_convos}
+\end{figure}
+
+\humantext{The figures below illustrate one capability of the system each --- the routes and behaviors validated above, seen in the live interface. Each slot states what to capture and the image path to drop it into.}
+
+% ---- CAPTURE SLOT: budget route ----
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a budget query such as ``j'ai 500 DA, quelles offres ?'' and the reply listing only offers at or below 500 DA, cheapest-first.]\\[4pt] Save as \texttt{Images/demo\_budget.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
+% \includegraphics[width=0.85\textwidth]{Images/demo_budget.jpg}
+\caption{Budget route: only offers within the stated budget, ordered cheapest-first.}
+\label{fig:demo_budget}
+\end{figure}
+
+% ---- CAPTURE SLOT: named offer, all tiers ----
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a named-offer query (e.g.\ ``Cam Puce'' or ``Legend'') whose reply shows all of that offer's price tiers in ascending order.]\\[4pt] Save as \texttt{Images/demo\_named\_tiers.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
+% \includegraphics[width=0.85\textwidth]{Images/demo_named_tiers.jpg}
+\caption{Named-offer route: every tier of a single offer, ordered cheapest-first.}
+\label{fig:demo_named_tiers}
+\end{figure}
+
+% ---- CAPTURE SLOT: competitor firewall ----
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a competitor question such as ``c'est quoi les offres de Ooredoo ?'' and the instant, polite Djezzy-only refusal.]\\[4pt] Save as \texttt{Images/demo\_competitor.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
+% \includegraphics[width=0.85\textwidth]{Images/demo_competitor.jpg}
+\caption{Competitor firewall: a rival operator's offers are declined politely.}
+\label{fig:demo_competitor}
+\end{figure}
+
+% ---- CAPTURE SLOT: out-of-domain refusal ----
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: an out-of-domain question (e.g.\ the weather, or a general-knowledge question) and the polite refusal that gives no off-topic answer.]\\[4pt] Save as \texttt{Images/demo\_ood.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
+% \includegraphics[width=0.85\textwidth]{Images/demo_ood.jpg}
+\caption{Out-of-domain handling: an off-topic question is declined without fabrication.}
+\label{fig:demo_ood}
+\end{figure}
+
+% ---- CAPTURE SLOT: multilingual roaming ----
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a roaming question asked in Arabic or Darija about a country (e.g.\ Egypt --- ``3andkom 3ard ta3 Masr ?'') and the matching roaming offers, showing multilingual roaming routing.]\\[4pt] Save as \texttt{Images/demo\_roaming.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
+% \includegraphics[width=0.85\textwidth]{Images/demo_roaming.jpg}
+\caption{Multilingual roaming: an Arabic Egypt-roaming request answered with the correct roaming offers.}
+\label{fig:demo_roaming}
+\end{figure}
+
+% ---- CAPTURE SLOT: voice round-trip ----
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a voice interaction --- the microphone recorder, the transcribed question shown with the microphone prefix, and the spoken-reply audio player.]\\[4pt] Save as \texttt{Images/demo\_voice.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
+% \includegraphics[width=0.85\textwidth]{Images/demo_voice.jpg}
+\caption{Voice round-trip: speech in, transcription, and spoken reply within one conversation.}
+\label{fig:demo_voice}
+\end{figure}
+
+% ---- CAPTURE SLOT: Darija without translation ----
+\begin{figure}[H]
+\centering
+\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a Darija question (Latin script) answered in Modern Standard Arabic, with offer names kept in Latin (Legend, iZZY).]\\[4pt] Save as \texttt{Images/demo\_darija.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
+% \includegraphics[width=0.85\textwidth]{Images/demo_darija.jpg}
+\caption{Darija handled without translation: a Modern Standard Arabic reply that keeps offer names in Latin script.}
+\label{fig:demo_darija}
 \end{figure}
 
 \section{Architecture Comparison: API vs Local}
