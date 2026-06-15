@@ -72,10 +72,16 @@ def load_stt():
     return _stt
 
 
-# Brand-primed prompt to bias Whisper toward Djezzy vocabulary.
+# Brand-primed prompt to bias Whisper toward Djezzy vocabulary. It also lists common
+# Algerian-Darija question words (شحال = how much, كيفاش = how, قداش, رصيد = credit,
+# تعبئة = top-up, فليكسي = Flexy) so the model is less likely to mishear them — e.g.
+# "شحال عندي كريدي" (how much credit do I have) was being heard as "حال عندي كريدي".
+# This is a primer, not a fix for Whisper's limited Darija coverage (Future Work:
+# fine-tune on an Algerian-Darija speech corpus).
 _STT_PRIMER = (
     "Djezzy, iZZY, Legend, Campuce, Zid, Confort, roaming, forfait, "
-    "Go, Mo, DA, dinars, internet, crédit, Hadj, Omra."
+    "Go, Mo, DA, dinars, internet, crédit, Hadj, Omra. "
+    "شحال، قداش، كيفاش، رصيد، كريدي، تعبئة، فليكسي، عرض، باقة."
 )
 
 

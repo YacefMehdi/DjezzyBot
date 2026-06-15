@@ -175,6 +175,21 @@ _CSS = f"""
 .djezzy-status {{ background: {config.DJEZZY_RED}; color: {config.DJEZZY_WHITE};
                   padding: 8px 14px; border-radius: 8px; font-weight: 600; }}
 footer {{ visibility: hidden; }}
+
+/* Bidirectional text. Each message follows its OWN script's direction: an Arabic or
+   Darija reply renders right-to-left (so embedded Latin names like "Djezzy"/"iZZY" and
+   short codes like "#121*" keep the correct visual order), while French/English stay
+   left-to-right. `unicode-bidi: plaintext` applies the Unicode bidi algorithm per
+   paragraph using its first strong character, so no per-message language flag is needed. */
+.gradio-container .message,
+.gradio-container .message *,
+.gradio-container [class*="bubble"],
+.gradio-container [class*="message"] p,
+.gradio-container [class*="message"] li,
+.gradio-container [class*="message"] span {{
+  unicode-bidi: plaintext;
+  text-align: start;
+}}
 """
 
 
