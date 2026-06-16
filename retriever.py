@@ -201,21 +201,42 @@ def _copy_doc(doc, new_text: str = None):
     )
 
 
+def _slug_is_offer(url: str, target: str) -> bool:
+    """True if a WHOLE path segment of `url` is exactly the offer `target` (accent/
+    hyphen folded, spaces collapsed), allowing an optional leading "djezzy" token.
+
+    Matching a full segment — not a substring of the flattened URL — is what stops a
+    base offer ("legend") from being captured by a more specific offer's page
+    (".../legend-max" or ".../djezzy-legend-pro"), while the "djezzy" strip still lets
+    the real base page ".../djezzy-legend" match, and "cam-puce" match "campuce".
+    `_fold` lowercases, strips accents, and turns - / _ into spaces but keeps the "/"
+    separators, so splitting on "/" yields the path segments and each segment's words.
+    """
+    for seg in lexicon._fold(url).split("/"):
+        words = seg.split()
+        if words and words[0] == "djezzy":   # drop the brand prefix in slugs
+            words = words[1:]
+        if "".join(words) == target:
+            return True
+    return False
+
+
 def _offer_page_url(store: dict, offer: str):
     """URL of the page that best represents `offer`, or None.
 
-    Prefers the page whose URL slug contains the offer name (its dedicated page);
-    otherwise the page with the most name-matching chunks.
+    Prefers the page whose URL slug IS the offer — matched as a whole path segment so
+    a base offer ("legend") is never captured by a longer offer's page
+    ("legend-max"/"legend-pro"), which was answering "Legend" with Legend Max.
+    Otherwise falls back to the page with the most name-matching chunks.
     """
-    folded = lexicon._fold(offer).replace(" ", "")
+    target = lexicon._fold(offer).replace(" ", "")
     counts = {}
     slug_url = None
     for d in store.values():
         if lexicon.offer_in_text(offer, d.page_content):
             url = d.metadata.get("source_url", "")
             counts[url] = counts.get(url, 0) + 1
-            if slug_url is None and folded and \
-                    folded in lexicon._fold(url).replace(" ", "").replace("/", ""):
+            if slug_url is None and target and _slug_is_offer(url, target):
                 slug_url = url
     if slug_url:
         return slug_url
