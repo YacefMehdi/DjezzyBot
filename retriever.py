@@ -314,6 +314,19 @@ def _dedup(docs: list) -> list:
     return out
 
 
+def _is_decimal_fraction(low: str, start: int) -> bool:
+    """True if the DA amount matched at `start` is the fractional part of a decimal.
+
+    Djezzy writes per-unit tariffs with a decimal comma ("4,99 DA", "4,99 DA/Mo").
+    _PRICE_RE can only match digit/space runs, so the comma cuts "4,99" and it grabs
+    the trailing "99" — making a 4.99 DA rate look like a 99 DA offer (which then
+    sorted the per-unit / SIM-purchase chunk ahead of the real tier table). When the
+    two characters just before the match are "<digit><,|.>", it is a decimal fraction,
+    never a subscription price."""
+    pre = low[max(0, start - 2):start]
+    return len(pre) == 2 and pre[0].isdigit() and pre[1] in ".,"
+
+
 def _chunk_price(text: str):
     """Extract the smallest DA SUBSCRIPTION price in a chunk, or None.
 
@@ -324,6 +337,8 @@ def _chunk_price(text: str):
     for m in _PRICE_RE.finditer(low):
         if _RATE_AFTER_RE.match(low, m.end()):
             continue                            # per-unit rate, not a price
+        if _is_decimal_fraction(low, m.start()):
+            continue                            # "4,99 DA" -> the ",99" is a rate, not 99 DA
         try:
             prices.append(int(m.group(1).replace(" ", "")))
         except ValueError:
@@ -346,6 +361,18 @@ def _doc_price(doc):
     return p if p is not None else float("inf")
 
 
+def _min_tier_price(doc):
+    """A chunk's cheapest real TIER price, or +inf if it carries none.
+
+    Unlike _doc_price (any DA amount), this uses the tier-block splitter, so per-unit
+    rates, crédit/bonus figures and a one-off "carte SIM 200 DA" purchase fee do NOT
+    count — only genuine subscription tiers. The named route uses it to lead with the
+    offer's tier table and sink the activation / SIM-purchase tail (which has no tier),
+    the section that was being answered instead of the prices the customer asked for."""
+    tiers = [p for p, _ in _split_offer_blocks(doc.page_content) if p is not None]
+    return min(tiers) if tiers else float("inf")
+
+
 def _is_tier_price(lines: list, i: int):
     """If line `i` holds a tier (subscription) price, return it, else None.
 
@@ -354,11 +381,14 @@ def _is_tier_price(lines: list, i: int):
     "CRÉDIT"). We deliberately do NOT look at the previous line: a crédit label
     belonging to the prior offer must not suppress the next offer's real price.
     """
-    m = _PRICE_RE.search(lines[i])
+    low_line = lines[i].lower()
+    m = _PRICE_RE.search(low_line)
     if not m:
         return None
-    if _RATE_AFTER_RE.match(lines[i].lower(), m.end()):
+    if _RATE_AFTER_RE.match(low_line, m.end()):
         return None                            # per-unit rate (5 DA/SMS), not a tier
+    if _is_decimal_fraction(low_line, m.start()):
+        return None                            # "4,99 DA" decimal, not a tier price
     ctx = " ".join(lines[i: i + 2]).lower()
     if any(w in ctx for w in _CREDIT_WORDS):
         return None
@@ -632,7 +662,13 @@ def smart_retrieve(query: str, lang: str, vector_db):
             # and chunks AMONG themselves. This is the Cam Puce fix (7 paliers were
             # returned in arbitrary page order) — generalised to every named offer.
             page = [_copy_doc(d, _sort_offer_text_by_price(d.page_content)) for d in page]
-            page.sort(key=_doc_price)                            # cheapest chunk first
+            # Lead with the chunks that actually hold tier prices; drop the activation /
+            # SIM-purchase tail (per-unit rates, "carte SIM 200 DA") that has no tier and
+            # was being surfaced as the answer instead of the offer's tier table. Keep the
+            # whole page only if NO chunk carries a tier (so the route never returns empty).
+            tiered = [d for d in page if _min_tier_price(d) != float("inf")]
+            page = tiered or page
+            page.sort(key=_min_tier_price)                       # cheapest tier first
             docs = page
         else:  # offer not located by page → fall back to name-match chunks
             docs = _exact_match_chunks(vector_db, primary, config.K_NAMED_EXACT)
