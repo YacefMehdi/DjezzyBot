@@ -113,14 +113,15 @@
     \textbf{University of Algiers 1 -- Benyoucef Benkhedda}\\[0.5cm]
     \includegraphics[width=0.2\textwidth]{Images/Logo_Alger1.png}\\[0.6cm]
     \textbf{Faculty of Sciences}\\
-    \textbf{Department of Computer Science}\\[1cm]
+    \textbf{Department of Computer Science}\\[0.3cm]
+    \rule{0.55\textwidth}{0.4pt}\\[1cm]
 
     \large Dissertation submitted to obtain the degree of\\
     \large \textbf{Master in Computer Science}\\[0.5cm]
-    \normalsize \textbf{Option:} Intelligent Computer Systems Engineering (ISII)\\[1cm]
+    \normalsize \textbf{Option:} Intelligent Computer Systems Engineering (ISII)\\[1.2cm]
 
-    \LARGE \textbf{Topic}\\[1cm]
-    \large \textbf{DjezzyBot: Design and Implementation of a Multilingual Virtual Assistant Based on the RAG Architecture and Open-Source LLMs}\\[1.5cm]
+    \LARGE \textbf{Project Subject}\\[1cm]
+    \fbox{\parbox{0.9\textwidth}{\centering \vspace{0.3cm} \large \textbf{DjezzyBot: Design and Implementation of a Multilingual Virtual Assistant Based on the RAG Architecture and Open-Source LLMs}\vspace{0.3cm}}}\\[1.5cm]
 
     \begin{minipage}[t]{0.48\textwidth}
         \begin{flushleft}
@@ -332,7 +333,7 @@ XTTS   & Cross-lingual Text-to-Speech \\
 
 \section{Introduction}
 
-\humantext{Before addressing the technical design, it is necessary to situate the project within its context, namely Djezzy, the operator for which the assistant was developed.} \humantext{This chapter first presents the operator itself --- its history, its position on the Algerian market, and the range of services it offers. It then sets out the needs analysis that justifies a virtual assistant, and concludes with the main features and non-functional constraints that guided the design choices throughout the project.}
+\humantext{Before addressing any technical work, it is necessary to situate the project within its context, namely Djezzy, the operator for which the assistant was developed.} \humantext{This chapter first presents the operator itself --- its history, its position on the Algerian market, and the range of services it offers. It then surveys the customer-service channels Djezzy already offers and the gap they leave open, sets out the needs analysis that justifies a virtual assistant, and concludes with the main features and non-functional constraints that frame the rest of the project.}
 
 \section{Presentation of the Host Organization}
 
@@ -372,6 +373,46 @@ Ooredoo Algeria & 2004 & $\sim$15 M & Ooredoo Group (Qatar)         & 2G / 3G / 
 \subsection{Network Infrastructure}
 
 \sourced{Djezzy's network covers 2G (GSM), 3G (UMTS/HSPA+), and 4G LTE technologies across the country, with continuous densification work in rural areas and the southern wilayas. 4G coverage is still denser in the large urban hubs (Algiers, Oran, Constantine, Annaba).} \humantext{This is relevant to the present work because most users will interact with DjezzyBot from areas with adequate network coverage, which is consistent with the assumptions underlying a cloud-hosted prototype deployed on Google Colab.}
+
+% ---------------------------------------------------------------
+% SECTION 2.5 : CANAUX DE SERVICE CLIENT EXISTANTS
+% ---------------------------------------------------------------
+
+\section{Existing Customer-Service Channels}
+
+\humantext{Before justifying a new assistant, it is worth surveying the channels through which a Djezzy subscriber can already obtain an answer today, and asking where each one falls short. Djezzy currently serves its customers through four main channels.}
+
+\subsection{Physical Points of Sale}
+\humantext{Djezzy operates a network of agencies, split between \emph{direct} points of sale (company-owned, staffed by Djezzy employees) and \emph{indirect} ones (authorized resellers, kiosks, and small shops spread across the country, including rural areas). They handle the full range of operations --- SIM activation, plan subscription, billing, and complaints --- in Darija and French. Their limits are structural: they open only during business hours, their physical capacity creates long queues when a new offer launches, and a large share of the staff's time is spent on simple, repetitive questions (plan contents, top-up, activation) rather than on the cases that genuinely need a human. They are also the most expensive channel to run, between premises, salaries, and continuous staff training.}
+
+\subsection{The Mobile Application}
+\humantext{The Djezzy mobile app is the operator's most advanced digital channel, available on iOS and Android around the clock. It lets a subscriber check consumption, top up, and subscribe to offers in self-service. Its limit is that it is a \emph{menu-driven} tool: the user must already know what they are looking for and navigate predefined screens to find it. There is no way to ask a question in plain language, no voice interaction, and --- crucially for a prospect --- it requires an active Djezzy number, so it is of no use to someone who does not yet have a SIM.}
+
+\subsection{The Website and Live Chat}
+\humantext{Djezzy's website publishes the same catalogue and hosts a live-chat service reachable from any browser, which makes it the most accessible channel. It inherits, however, the same two weaknesses as the agencies: it is staffed by human agents, so it is available only during business hours and its response time degrades under load, and it is limited to text.}
+
+\subsection{The Call Center}
+\humantext{The telephone hotline remains the channel subscribers fall back on when the others fail them, and it is here that the problem this thesis addresses is most visible. The same factual questions recur continually, the volume saturates the lines, and customers lose patience on hold before reaching an agent --- a pattern examined in detail in the needs analysis below. Like the agencies and the live chat, it does not scale beyond the number of human agents on duty.}
+
+\subsection{Synthesis}
+\humantext{Table~\ref{tab:channels} compares these channels against the criteria that matter for our problem. Read together, they expose a single recurring trade-off: the only channel that is both always available and scalable --- the mobile app --- is also the only one that cannot take a free-form or Darija question, because it is a rigid menu; conversely, every channel that does understand a person phrased in their own words (the agencies, the live chat, the call center) is human-staffed, and therefore closes at night and collapses under load. No existing channel combines round-the-clock availability, the Algerian language mix (including Darija), and natural-language understanding at once. That unfilled corner --- a conversational, multilingual, always-on self-service channel grounded in Djezzy's own data --- is precisely what DjezzyBot is designed to occupy.}
+
+\begin{table}[H]
+\centering
+\caption{Existing customer-service channels at Djezzy, compared}
+\label{tab:channels}
+\begin{tabularx}{\textwidth}{X c c c c}
+\toprule
+\textbf{Criterion} & \textbf{Agencies} & \textbf{Mobile app} & \textbf{Live chat} & \textbf{Call center} \\
+\midrule
+Availability               & Business hours & 24/7 (self-service) & Business hours & Business hours \\
+Languages                  & AR, FR, Darija & AR, FR              & AR, FR, Darija & AR, FR, Darija \\
+Natural-language questions & Yes (human)    & No (menus)          & Yes (human)    & Yes (human) \\
+Scalability                & Low            & High                & Low            & Low \\
+Operating cost             & Very high      & Low                 & Medium         & High \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 % ---------------------------------------------------------------
 % SECTION 3 : ANALYSE DES BESOINS
@@ -475,7 +516,7 @@ NFR-06 & Accessibility        & The interface is reachable from any browser with
 
 \section{Conclusion}
 
-\humantext{This chapter established the context of the project. It introduced Djezzy --- both the sponsor and the testing ground for DjezzyBot --- covering its origins, its mixed public-private ownership, its position in a three-operator market, and the range of its offers: Legend and iZZY in the prepaid segment, international roaming bundles, and particular cases such as the student offer Campuce, which later posed specific technical challenges.}
+\humantext{This chapter established the context of the project. It introduced Djezzy --- both the sponsor and the testing ground for DjezzyBot --- covering its origins, its mixed public-private ownership, its position in a three-operator market, and the range of its offers: Legend and iZZY in the prepaid segment, international roaming bundles, and particular cases such as the student offer Campuce, which later posed specific technical challenges. It then surveyed the channels through which Djezzy already serves its customers --- physical agencies, the mobile app, live chat, and the call center --- and showed that none of them combines round-the-clock availability, the Algerian language mix, and natural-language understanding at once.}
 
 \humantext{The needs analysis defined the central question: how to build an assistant that handles French and Darija over a catalogue in which some offers resist generic NLP techniques. The resulting requirements --- multilingual understanding, strict factual grounding, a voice interface, out-of-domain filtering, and a firm 15~GB GPU constraint --- constitute the roadmap for the remainder of this work.}
 
@@ -1714,6 +1755,8 @@ Pure dense retrieval (no router, no lexicon) & 0.357 & 0.786 \\
 
 \subsubsection{Answer Groundedness (Automatic Anti-Hallucination)}
 \humantext{For every non-refusal answer we measure what fraction of the prices it states actually appear in the retrieved context --- an automatic, objective faithfulness metric. This operationalises the same notion as \emph{faithfulness} in the RAGAS evaluation framework for retrieval-augmented systems, specialised here to the verifiable atomic facts that matter most in this domain (offer prices), so that each claim is checked against the retrieved source rather than judged subjectively. Across the answered queries the groundedness is 0.90 (70 prices checked over 10 answers): nine out of ten quoted prices are traceable to a source chunk --- a value in line with the faithfulness scores reported for production-grade RAG systems. The residual gap concentrates on the budget route, consistent with the data-quality soft spot discussed below.}
+
+\humantext{One caveat keeps this honest. The full RAGAS faithfulness metric uses a large language model as an automatic judge to decide whether each claim is supported, which makes it sensitive to the wording of the evaluation prompt and introduces some judge-to-judge variance. Our check is deliberately not that: it is deterministic, verifying prices by exact string match against the retrieved context. This trades breadth for objectivity --- we audit only the verifiable atomic facts that matter most here (prices), rather than every claim in the answer, but the figure is exactly reproducible and carries no judge model of its own. The same applies to the other metrics in this section: language detection, intent routing, and retrieval recall@k are all scored against fixed labels, so none of them depends on an LLM grading the system's own output.}
 
 \subsubsection{Out-of-Domain Detection: An Honest Negative Result}
 \humantext{Out-of-domain (OOD) refusal --- declining ``what is the weather?'' without ever refusing a real customer --- proved the hardest component, and we report it honestly rather than dress it up. Our earlier calibration study had already shown that a similarity \emph{threshold} cannot separate OOD from in-domain queries, because the multilingual e5 embedder assigns uniformly high scores to almost any input. We therefore built a dedicated binary ``is this about Djezzy?'' classifier (an LLM-as-judge gate run before generation). On the labelled set it was excellent: it raised OOD recall to 1.0 with a 0.0 false-refusal rate. \emph{However}, live multilingual testing exposed a failure the offline set had missed --- the gate refused perfectly in-domain Arabic and Darija questions whose wording carries no surface telecom token, for instance ``how do I activate 5G'' and ``do you have an offer for Egypt'' (a roaming request), both of which their English equivalents answered. For a customer-facing assistant, wrongly turning away a real subscriber is the costlier error, so we \emph{disabled} the gate by default and fall back to the system prompt's domain rule: high precision, but lower recall (some deceptive off-domain questions are answered). On the labelled set this shipped configuration scores an OOD recall of 0.20 at a \emph{0.0 false-refusal rate} --- it never wrongly turns away a real customer, at the cost of answering some off-topic questions, which is the trade-off we deliberately chose. We keep the gate in the codebase behind a configuration flag and report both its offline gain and its live failure mode, because the engineering decision --- favouring recall of real customers over OOD precision --- is itself a finding. Robust OOD detection that is simultaneously high-recall and never false-refusing remains an open problem for this multilingual setting, and we return to it in the future-work discussion.}
