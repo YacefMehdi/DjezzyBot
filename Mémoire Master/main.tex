@@ -275,25 +275,26 @@ XTTS   & Cross-lingual Text-to-Speech \\
 \addcontentsline{toc}{chapter}{General Introduction}
 
 \section*{General Background}
-\humantext{Algeria's telecom market moves fast now. A decade ago mobile data was a luxury. Today it is everywhere, and the operators compete by piling on offers: more plans, more bundles, a new promotion almost every season.} \sourced{According to the Regulatory Authority for Post and Electronic Communications (ARPCE), the number of mobile subscribers in Algeria reached about 54~million in the fourth quarter of 2024 \cite{arpce2024}, a penetration rate of roughly 117\,\% for a population of 46.7~million on 1~January 2024 (projected at 47.4~million in 2025) \cite{ons2025}.} \sourced{Three operators share this market: Mobilis (a subsidiary of Algérie Télécom), Ooredoo (Qatari group), and Djezzy (part of the VEON group), the last of which counts more than 14~million active subscribers.}
+\humantext{The Algerian telecommunications market has evolved rapidly over the past decade. Mobile data, once a costly luxury, has become ubiquitous, and operators now compete chiefly through the breadth of their commercial offerings, introducing new plans, bundles, and seasonal promotions at a sustained pace.} \sourced{According to the Regulatory Authority for Post and Electronic Communications (ARPCE), the number of mobile subscribers in Algeria reached about 54~million in the fourth quarter of 2024 \cite{arpce2024}, a penetration rate of roughly 117\,\% for a population of 46.7~million on 1~January 2024 (projected at 47.4~million in 2025) \cite{ons2025}.} \sourced{Three operators share this market: Mobilis (a subsidiary of Algérie Télécom), Ooredoo (Qatari group), and Djezzy (part of the VEON group), the last of which counts more than 14~million active subscribers.}
 
-\sourced{Operators like Djezzy keep launching new plans: prepaid (Legend, iZZY), postpaid (Legend Max), student offers (Student Campuce), value-added services such as E-Flexy and DjezzyNet, and international roaming, all to keep an increasingly connected and demanding customer base happy.} \humantext{Three operators, one pool of subscribers. In a fight that tight, the small frictions decide who stays. Can the customer find the right answer quickly? Or do they give up halfway down a menu? Those little moments add up, and they add up to churn.}
+\sourced{Operators like Djezzy keep launching new plans: prepaid (Legend, iZZY), postpaid (Legend Max), student offers (Student Campuce), value-added services such as E-Flexy and DjezzyNet, and international roaming, all to keep an increasingly connected and demanding customer base happy.} \humantext{With three operators competing for a single pool of subscribers, customer retention increasingly depends on the quality of the service experience. The ease with which a customer can obtain an accurate answer, rather than abandoning the search partway through a menu, has a direct bearing on satisfaction and, ultimately, on churn.}
 
-\humantext{Something else shifted in parallel. Large Language Models (LLMs) made software fluent. GPT-4, Llama 3, Qwen: these models read what a user actually means, follow instructions, and reply in language that reads like a person wrote it.} \sourced{To address the factual weaknesses of these models, the RAG paradigm (\textit{Retrieval-Augmented Generation}) introduced by Lewis et al. \cite{lewis2020rag} pairs the parametric memory of a pre-trained generator with an external, non-parametric memory.} \sourced{This grounds a model's answers in a factual knowledge base, which opens the door to virtual assistants that give precise, contextual, and verifiable answers.}
+\humantext{In parallel, the emergence of Large Language Models (LLMs) has transformed the capabilities of conversational software. Models such as GPT-4, Llama~3, and Qwen are able to interpret a user's intent, follow instructions, and produce fluent, natural-sounding responses.} \sourced{To address the factual weaknesses of these models, the RAG paradigm (\textit{Retrieval-Augmented Generation}) introduced by Lewis et al. \cite{lewis2020rag} pairs the parametric memory of a pre-trained generator with an external, non-parametric memory.} \sourced{This grounds a model's answers in a factual knowledge base, which opens the door to virtual assistants that give precise, contextual, and verifiable answers.}
 
-\humantext{The information is all there. Djezzy's website and app hold it. The trouble is finding it.} \humantext{Say you want the price of a roaming option, or the exact steps to activate a SIM. You will be clicking through a menu, then a sub-menu, then a FAQ that only half answers the question. It is scattered across pages, and it wears you down.}
+\section*{Problem Statement}
+\humantext{The information subscribers need is already published on Djezzy's website and mobile application; the difficulty lies in locating it.} \humantext{A customer seeking the price of a roaming option or the procedure for activating a SIM card must typically navigate through successive menus and sub-menus, often arriving at a FAQ that only partially answers the question. The relevant information is dispersed across many pages, which makes the search tedious.}
 
-\humantext{So people call instead. Many of them. The lines fill up, the wait drags on, and patience runs out long before an agent picks up.} \sourced{Industry studies report that more than 60\,\% of calls to telecom support centers are basic information questions (prices, plans, activation) that could be automated \cite{gartner2023}.}
+\humantext{As a result, many subscribers turn to the call center instead. The lines become saturated, waiting times lengthen, and customers frequently lose patience before reaching an agent.} \sourced{Industry studies report that more than 60\,\% of calls to telecom support centers are basic information questions (prices, plans, activation) that could be automated \cite{gartner2023}.}
 
-\humantext{Handing this support to classic chatbots (rigid keyword matching or decision trees) quickly falls short, for several reasons:}
+\humantext{Delegating this support to conventional chatbots based on rigid keyword matching or decision trees proves inadequate, for several reasons:}
 \begin{itemize}[noitemsep]
-    \item \humantext{\textbf{The language barrier:} Algerians switch languages mid-sentence. Arabic, French, and Darija, sometimes all three at once, often typed in ``Arabizi'' (``3tini l'offre'' means give me the offer). A keyword bot does not stand a chance.}
+    \item \humantext{\textbf{The language barrier:} Algerians switch languages mid-sentence. Arabic, French, and Darija, sometimes all three at once, often typed in ``Arabizi'' (``3tini l'offre'' means give me the offer). A keyword-based bot cannot reliably handle such input.}
     \item \humantext{\textbf{Lack of flexibility:} A pre-scripted system cannot summarize or compare two plans the way a human would.}
     \item \humantext{\textbf{Vendor lock-in:} Relying on paid APIs such as OpenAI raises heavy concerns about cost, technical independence, and leaking private data.}
 \end{itemize}
 
 \section*{Objectives and Motivation}
-\humantext{The motivation is concrete: take the load of repetitive factual questions off Djezzy's call centers with an assistant that fits Algeria's language mix and runs at zero cost. The overall goal of this thesis is to build that end-to-end solution. It breaks down into several technical sub-objectives:}
+\humantext{The motivation is concrete: to relieve Djezzy's call centers of the load of repetitive factual questions through an assistant that fits Algeria's language mix and operates at zero cost. The overall objective of this thesis is to build that end-to-end solution, which can be decomposed into several technical sub-objectives:}
 \begin{itemize}
     \item \humantext{\textbf{Building the knowledge base:} automated extraction (\textit{web scraping} with Playwright and BeautifulSoup) of data from Djezzy's official sites, aggressive HTML cleaning, and storing the information as JSON.}
     \item \humantext{\textbf{Implementing the RAG pipeline:} embedding the text with a multilingual model (\texttt{multilingual-e5}) orchestrated by LangChain, stored in a FAISS vector index with per-page chunking.}
@@ -304,14 +305,14 @@ XTTS   & Cross-lingual Text-to-Speech \\
 \end{itemize}
 
 \section*{Contributions}
-\humantext{That is the gap this project sets out to fill. \textbf{DjezzyBot}, built for the ISII master's, is our answer to it.} \humantext{Think of it as a companion that never sleeps. You type to it, or you talk to it. Either way, it answers.}
+\humantext{This project addresses precisely that gap. \textbf{DjezzyBot}, developed within the ISII master's programme, is an always-available assistant that subscribers can use either by text or by voice.}
 
-\humantext{We made one firm choice up front: \textit{open-source} only, no paid APIs.} \humantext{Under the hood that means a Large Language Model (Qwen2.5, from Alibaba Cloud) wired to a RAG (\textit{Retrieval-Augmented Generation}) pipeline.} \humantext{The order is the whole point. The bot looks up the real facts in a FAISS database first, and only then writes. This grounding sharply \emph{reduces} the risk of an invented price --- it does not pretend to eliminate it (Chapter~5 measures the residual gap) --- and the data never leaves our own machine.}
+\humantext{A firm design decision was taken at the outset: the system would rely exclusively on \textit{open-source} components, with no paid APIs.} \humantext{At its core, it couples a Large Language Model (Qwen2.5, developed by Alibaba Cloud) with a RAG (\textit{Retrieval-Augmented Generation}) pipeline.} \humantext{This ordering is essential: the assistant first retrieves the relevant facts from a FAISS database and only then generates its answer. This grounding sharply \emph{reduces} the risk of an invented price --- it does not pretend to eliminate it (Chapter~5 measures the residual gap) --- and no data leaves the local machine.}
 
-\humantext{Languages we handle the simple way: no translation step at all. A multilingual embedding model reads French, Arabic, English, and Darija \emph{directly}, and Qwen2.5 replies in whatever language the user wrote in. One more piece sits in front of the search. A rule-based router reads the question first and catches brand names like ``Campuce'' or ``iZZY'' by exact text match. That last detail matters more than it sounds, because an embedding model has never seen an invented commercial name and will not find it on its own.}
+\humantext{Multilingual input is handled without any translation step: a multilingual embedding model processes French, Arabic, English, and Darija \emph{directly}, and Qwen2.5 replies in the language in which the user wrote. A rule-based router is placed in front of the search and identifies commercial names such as ``Campuce'' or ``iZZY'' by exact text matching. This last mechanism is more important than it may appear, since an embedding model has never encountered an invented commercial name and cannot retrieve it reliably on its own.}
 
 \section*{Research Outline}
-\humantext{To follow the whole approach, the thesis is organized into five main parts:}
+\humantext{The thesis is organized into five main chapters, following the overall approach:}
 \begin{itemize}
     \item \humantext{\textbf{Chapter 1} introduces Djezzy, its role on the national market, and the analysis that led us to start this project.}
     \item \humantext{\textbf{Chapter 2} reviews the relevant literature, from basic NLP up to Transformers, LLMs, and RAG and voice architectures.}
@@ -328,15 +329,15 @@ XTTS   & Cross-lingual Text-to-Speech \\
 
 \section{Introduction}
 
-\humantext{Before any AI or code, the project needs grounding in its setting --- Djezzy, the operator the assistant was built for.} \humantext{We start with the operator itself: its history, where it sits on the Algerian market, and the range of services it sells. Then we lay out the needs analysis that justified a virtual assistant, and close with the functional and non-functional requirements that steered our choices all the way through.}
+\humantext{Before addressing the technical design, it is necessary to situate the project within its context, namely Djezzy, the operator for which the assistant was developed.} \humantext{This chapter first presents the operator itself --- its history, its position on the Algerian market, and the range of services it offers. It then sets out the needs analysis that justifies a virtual assistant, and concludes with the main features and non-functional constraints that guided the design choices throughout the project.}
 
 \section{Presentation of the Host Organization}
 
 \subsection{History and Market Position}
 
-\humantext{Djezzy is one of three operators fighting over the Algerian mobile market. Its legal name is Optimum Telecom Algérie S.P.A., OTA for short.} \sourced{Its commercial launch dates back to 2002, which made it the first private cellular operator to obtain an operating license in Algeria, in a market then held entirely by Mobilis, a subsidiary of Algérie Télécom.}
+\humantext{Djezzy is one of the three operators competing on the Algerian mobile market. Its legal name is Optimum Telecom Algérie S.P.A. (OTA).} \sourced{Its commercial launch dates back to 2002, which made it the first private cellular operator to obtain an operating license in Algeria, in a market then held entirely by Mobilis, a subsidiary of Algérie Télécom.}
 
-\humantext{Ownership has shifted more than once.} \sourced{It was originally owned by the Egyptian group Orascom Telecom Holding (OTH) of the Sawiris family. In 2012, the Russo-Dutch group VimpelCom (now renamed VEON Ltd., listed on NASDAQ) acquired the majority stake. Two years later, in 2014, the Algerian state exercised its right of pre-emption and acquired, through the National Investment Fund (FNI), 51\,\% of the company's capital.} \humantext{The result today is split ownership. The Algerian state holds the majority, 51\,\%. VEON, the foreign partner active across several emerging markets, keeps the other 49\,\%.}
+\humantext{The company's ownership has changed several times.} \sourced{It was originally owned by the Egyptian group Orascom Telecom Holding (OTH) of the Sawiris family. In 2012, the Russo-Dutch group VimpelCom (now renamed VEON Ltd., listed on NASDAQ) acquired the majority stake. Two years later, in 2014, the Algerian state exercised its right of pre-emption and acquired, through the National Investment Fund (FNI), 51\,\% of the company's capital.} \humantext{Today, ownership is shared: the Algerian state holds the majority stake of 51\,\%, while VEON, a foreign partner active across several emerging markets, holds the remaining 49\,\%.}
 
 \sourced{In the fourth quarter of 2024, the Algerian mobile market counted about 54~million subscribers, according to the Regulatory Authority for Post and Electronic Communications (ARPCE) \cite{arpce2024}, a penetration rate of roughly 117\,\% for a population of 46.7~million on 1~January 2024 (projected at 47.4~million in 2025) \cite{ons2025}.}     \humantext{Table~\ref{tab:operateurs_algerie} summarizes the profiles of these three competitors.}
 
@@ -357,17 +358,17 @@ Ooredoo Algeria & 2004 & $\sim$15 M & Ooredoo Group (Qatar)         & 2G / 3G / 
 
 \subsection{Activities and Offer Portfolio}
 
-\humantext{At heart Djezzy sells consumer mobile service. But Algeria is not one market, it is many, so the brand splits its catalogue into several families, each aimed at a different kind of user.}
+\humantext{Djezzy's core business is consumer mobile service. Because the Algerian market is heterogeneous, the brand divides its catalogue into several families, each targeting a different category of user.}
 
-\humantext{Prepaid is the brand's commercial engine.} \sourced{The \textit{Legend} family is the high-end product, aimed at heavy data users with monthly volumes that can exceed 100~GB. The \textit{iZZY} family targets a younger audience, with flexible plans centered on social media and instant messaging. The \textit{Zid} and \textit{Confort} offers cover more classic uses, mainly voice calls and small, affordable internet bundles.}
+\humantext{The prepaid segment is the brand's principal commercial driver.} \sourced{The \textit{Legend} family is the high-end product, aimed at heavy data users with monthly volumes that can exceed 100~GB. The \textit{iZZY} family targets a younger audience, with flexible plans centered on social media and instant messaging. The \textit{Zid} and \textit{Confort} offers cover more classic uses, mainly voice calls and small, affordable internet bundles.}
 
-\humantext{One family deserves a special mention, because it shaped a real part of our code. \textbf{Campuce} (\textit{Student Cam Puce}) is for university students only, on a valid student card. The name is invented. It blends \textit{Campus} and \textit{Puce} (the French word for SIM chip), and you will not find it in any NLP training corpus. That caused us trouble early on. Generic embedding models simply could not retrieve the offer by meaning. Our fix was an exact text match on offer names, built into the intent router. Chapter~3 walks through it.}
+\humantext{One family warrants particular mention, as it directly influenced part of the implementation. \textbf{Campuce} (\textit{Student Cam Puce}) is reserved for university students holding a valid student card. Its name is a neologism combining \textit{Campus} and \textit{Puce} (the French term for a SIM chip), and it appears in no NLP training corpus. This posed a difficulty early in the project, as generic embedding models could not retrieve the offer by semantic similarity. The adopted solution was an exact text match on offer names, integrated into the intent router and detailed in Chapter~3.}
 
 \sourced{The \textbf{internet services} include \textit{DjezzyNet} and \textit{FlexiNet}, available as daily, weekly, or monthly plans. The operator also offers \textbf{international roaming bundles} for around twenty destinations (France, Tunisia, Spain, Turkey, Gulf countries\ldots), as well as \textbf{value-added services}: credit transfer via E-Flexy, balance and active-option lookups via USSD codes (\texttt{*710\#}, \texttt{*111\#}), and a mobile app available on iOS and Android.}
 
 \subsection{Network Infrastructure}
 
-\sourced{Djezzy's network covers 2G (GSM), 3G (UMTS/HSPA+), and 4G LTE technologies across the country, with continuous densification work in rural areas and the southern wilayas. 4G coverage is still denser in the large urban hubs (Algiers, Oran, Constantine, Annaba).} \humantext{Why does this matter to us? Because most people who talk to DjezzyBot will do it from a place with decent signal. That is exactly the assumption a cloud-hosted prototype on Google Colab is built on.}
+\sourced{Djezzy's network covers 2G (GSM), 3G (UMTS/HSPA+), and 4G LTE technologies across the country, with continuous densification work in rural areas and the southern wilayas. 4G coverage is still denser in the large urban hubs (Algiers, Oran, Constantine, Annaba).} \humantext{This is relevant to the present work because most users will interact with DjezzyBot from areas with adequate network coverage, which is consistent with the assumptions underlying a cloud-hosted prototype deployed on Google Colab.}
 
 % ---------------------------------------------------------------
 % SECTION 3 : ANALYSE DES BESOINS
@@ -377,15 +378,15 @@ Ooredoo Algeria & 2004 & $\sim$15 M & Ooredoo Group (Qatar)         & 2G / 3G / 
 
 \subsection{Context and Problem Identification}
 
-\humantext{Watch a Djezzy call center for a day and a pattern jumps out. The same questions, over and over. How much credit is left. What a plan includes. How to switch on an option, what roaming costs, how to top up.} \humantext{None of it is hard, and that is exactly the problem. The answers are easy, but the sheer volume buries the agents, the queue never empties, and the customer on hold loses patience.}
+\humantext{Observation of a Djezzy call center reveals a clear pattern: the same questions recur continually --- the remaining credit balance, the contents of a plan, how to activate an option, the cost of roaming, or how to top up.} \humantext{None of these questions is individually difficult, and that is precisely the problem: although the answers are simple, the sheer volume overwhelms the agents, the queue never clears, and customers on hold lose patience.}
 
-\humantext{There is a second problem, and it is specific to Algeria. People do not pick one language and stick to it. They slide between French, Modern Standard Arabic, and Darija, sometimes inside a single sentence. We could not find one NLP tool built for that reality in local telecom.}
+\humantext{A second problem is specific to Algeria: users do not confine themselves to a single language, but switch between French, Modern Standard Arabic, and Darija, sometimes within a single sentence. No existing NLP tool was found to address this reality in the local telecom context.}
 
-\humantext{Those two problems together are where DjezzyBot began. Overloaded call centers on one side, no language tool that fits Algeria on the other. The goal we set was narrow and concrete: an assistant that answers the most common subscriber questions on its own, in French and Arabic, by text or by voice, using nothing but a knowledge base built from Djezzy's own published data.}
+\humantext{These two problems --- overloaded call centers on the one hand, and the absence of a language tool suited to Algeria on the other --- together motivated DjezzyBot. The objective was deliberately narrow and concrete: an assistant capable of answering the most common subscriber questions autonomously, in French and Arabic, by text or by voice, drawing solely on a knowledge base built from Djezzy's own published data.}
 
 \subsection{Actors}
 
-\humantext{Before writing any specification, it helps to ask who actually uses this thing. There are two profiles.}
+\humantext{Before specifying the system, it is useful to identify its users. Two profiles can be distinguished.}
 
 \begin{itemize}
     \item \humantext{\textbf{The Djezzy subscriber} is the main user. They talk to DjezzyBot by text or voice and want an answer, in French, Arabic, or Darija. Their questions are usually about offers, prices, top-ups, roaming, or the everyday procedures around Djezzy's services.}
@@ -394,9 +395,9 @@ Ooredoo Algeria & 2004 & $\sim$15 M & Ooredoo Group (Qatar)         & 2G / 3G / 
 
 \subsection{Requirements}
 
-\humantext{From the domain and the kinds of questions a telecom operator actually gets, we pinned down the requirements below.}
+\humantext{Based on the domain and the types of questions a telecom operator typically receives, the following requirements were established.}
 
-\textbf{Functional requirements:}
+\textbf{Main features:}
 \begin{itemize}
     \item \humantext{Understand questions phrased in natural language, in French, Modern Standard Arabic, or Darija, without forcing the user into a strict wording.}
     \item \humantext{Retrieve the relevant information from the Djezzy knowledge base and present it in a coherent, natural answer.}
@@ -405,7 +406,7 @@ Ooredoo Algeria & 2004 & $\sim$15 M & Ooredoo Group (Qatar)         & 2G / 3G / 
     \item \humantext{Work autonomously from the knowledge base alone, with no connection to real-time subscriber-account APIs.}
 \end{itemize}
 
-\textbf{Non-functional requirements:}
+\textbf{Non-functional constraints:}
 \begin{itemize}
     \item \humantext{\textbf{Factual accuracy:} answers must be strictly grounded in the knowledge base; any hallucinated price or commercial condition would be unacceptable here.}
     \item \humantext{\textbf{Response time:} under 10~seconds for a text answer; a wider tolerance for a voice answer (STT + inference + TTS included).}
@@ -418,68 +419,15 @@ Ooredoo Algeria & 2004 & $\sim$15 M & Ooredoo Group (Qatar)         & 2G / 3G / 
 % SECTION 4 : SPÉCIFICATION DES BESOINS
 % ---------------------------------------------------------------
 
-\section{Requirements Specification}
+\section{Main Features and Constraints}
 
-\subsection{Use-Case Diagram}
+\subsection{Main Features}
 
-\humantext{Figure~\ref{fig:use_case} pulls those interactions into a use-case diagram. The subscriber gets five use cases. The administrator gets one, reserved for keeping the knowledge base up to date.}
-
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[
-    uc/.style={draw, ellipse, minimum width=4.8cm, minimum height=0.9cm,
-               align=center, font=\small},
-    lien/.style={thick}
-]
-  % Cadre du système
-  \draw[thick, rounded corners=4pt] (1.0, -7.8) rectangle (9.5, 1.2);
-  \node[font=\normalsize\bfseries] at (5.25, 0.85) {DjezzyBot};
-
-  % Cas d'utilisation
-  \node[uc] (uc1) at (5.25,  0.2) {Ask a question (text)};
-  \node[uc] (uc2) at (5.25, -1.2) {Interact by voice (STT/TTS)};
-  \node[uc] (uc3) at (5.25, -2.6) {Browse offers and prices};
-  \node[uc] (uc4) at (5.25, -4.0) {Ask for a procedure};
-  \node[uc] (uc5) at (5.25, -5.4) {Check international roaming};
-  \node[uc] (uc6) at (5.25, -6.9) {Update the knowledge base};
-
-  % Acteur : Abonné Djezzy (gauche)
-  \draw (-0.8, -1.1)  circle (0.28);
-  \draw (-0.8, -1.38) -- (-0.8, -2.38);
-  \draw (-1.25,-1.78) -- (-0.35,-1.78);
-  \draw (-0.8, -2.38) -- (-1.15,-3.08);
-  \draw (-0.8, -2.38) -- (-0.45,-3.08);
-  \node[font=\small, align=center] at (-0.8,-3.45) {Djezzy\\subscriber};
-
-  % Acteur : Administrateur (droite)
-  \draw (11.2, -5.9)  circle (0.28);
-  \draw (11.2, -6.18) -- (11.2, -7.18);
-  \draw (10.75,-6.58) -- (11.65,-6.58);
-  \draw (11.2, -7.18) -- (10.85,-7.88);
-  \draw (11.2, -7.18) -- (11.55,-7.88);
-  \node[font=\small, align=center] at (11.2,-8.25) {Adminis-\\trator};
-
-  % Associations Subscriber → UC1-UC5
-  \draw[lien] (-0.52,-2.2) -- (uc1.west);
-  \draw[lien] (-0.52,-2.2) -- (uc2.west);
-  \draw[lien] (-0.52,-2.2) -- (uc3.west);
-  \draw[lien] (-0.52,-2.2) -- (uc4.west);
-  \draw[lien] (-0.52,-2.2) -- (uc5.west);
-
-  % Association Administrator → UC6
-  \draw[lien] (10.92,-6.5) -- (uc6.east);
-\end{tikzpicture}
-\caption{Use-case diagram of DjezzyBot}
-\label{fig:use_case}
-\end{figure}
-
-\subsection{Functional Requirements}
-
-\humantext{Table~\ref{tab:besoins_fonctionnels} details DjezzyBot's functional requirements, as they follow from the identified use cases.}
+\humantext{Table~\ref{tab:besoins_fonctionnels} details DjezzyBot's main features, as they follow directly from the needs analysis above.}
 
 \begin{table}[H]
 \centering
-\caption{Functional requirements}
+\caption{Main features}
 \label{tab:besoins_fonctionnels}
 \begin{tabularx}{\textwidth}{l l X}
 \toprule
@@ -496,13 +444,13 @@ FR-07 & Knowledge-base update       & Allow rebuilding the knowledge base from n
 \end{tabularx}
 \end{table}
 
-\subsection{Non-Functional Requirements}
+\subsection{Non-Functional Constraints}
 
 \humantext{Table~\ref{tab:besoins_non_fonctionnels} lists the non-functional constraints that directly guided our architecture choices, detailed in Chapter~3.}
 
 \begin{table}[H]
 \centering
-\caption{Non-functional requirements}
+\caption{Non-functional constraints}
 \label{tab:besoins_non_fonctionnels}
 \begin{tabularx}{\textwidth}{l l X}
 \toprule
@@ -524,11 +472,11 @@ NFR-06 & Accessibility        & The interface is reachable from any browser with
 
 \section{Conclusion}
 
-\humantext{This chapter set the scene. We introduced Djezzy, the operator that is both the sponsor and the testing ground for DjezzyBot: where it came from, its mixed public-private ownership, its place in a three-way market, and the spread of its offers. Legend and iZZY on prepaid, roaming bundles abroad, and odd cases like the student Campuce that gave us real headaches later on.}
+\humantext{This chapter established the context of the project. It introduced Djezzy --- both the sponsor and the testing ground for DjezzyBot --- covering its origins, its mixed public-private ownership, its position in a three-operator market, and the range of its offers: Legend and iZZY in the prepaid segment, international roaming bundles, and particular cases such as the student offer Campuce, which later posed specific technical challenges.}
 
-\humantext{The needs analysis handed us the question to answer. How do you build an assistant that handles French and Darija, over a catalogue where some offers fight back against generic NLP? The requirements that fell out of it, multilingual understanding, strict factual grounding, a voice interface, out-of-domain filtering, and a hard 15~GB GPU ceiling, became the roadmap for everything that follows.}
+\humantext{The needs analysis defined the central question: how to build an assistant that handles French and Darija over a catalogue in which some offers resist generic NLP techniques. The resulting requirements --- multilingual understanding, strict factual grounding, a voice interface, out-of-domain filtering, and a firm 15~GB GPU constraint --- constitute the roadmap for the remainder of this work.}
 
-\humantext{Chapter~2 turns to the technology. It traces NLP from its early days up to Transformers and open-source LLMs, explains the RAG approach, and covers the two things our hardware forced on us: quantization, and multilingual speech models that have to run on a budget.}
+\humantext{Chapter~2 turns to the underlying technology. It traces the evolution of NLP from its origins to Transformers and open-source LLMs, presents the RAG approach, and addresses the two constraints imposed by the available hardware: quantization, and multilingual speech models operating within a limited resource budget.}
 
 % ================================================================
 % CHAPITRE 2 : ÉTAT DE L'ART ET FONDEMENTS THÉORIQUES
@@ -537,17 +485,17 @@ NFR-06 & Accessibility        & The interface is reachable from any browser with
 \chapter{State of the Art and Theoretical Foundations}
 
 \section{Introduction}
-\humantext{Before building DjezzyBot we had to understand the tools it stands on. This chapter covers that ground. We start with how NLP got from hand-written rules to Transformers and LLMs, then dig into the pieces we actually use: RAG for factual grounding, quantization to fit a free GPU, vector databases for search, and the speech models that let the bot listen and talk in a dialectal context.}
+\humantext{Building DjezzyBot first required an understanding of the technologies on which it relies. This chapter provides that background. It begins with the evolution of NLP from hand-written rules to Transformers and LLMs, then examines the components used in this work: RAG for factual grounding, quantization to fit a free GPU, vector databases for search, and the speech models that enable the assistant to listen and speak in a dialectal context.}
 
 \section{Evolution of Natural Language Processing (NLP)}
 
 \subsection{From Rule-Based Systems to Machine Learning}
-\humantext{Natural Language Processing (NLP) is the part of AI that lets machines read and produce language. Early NLP was hand-written: rules and fixed word lists. Inside a narrow box it worked --- a telecom FAQ bot from that era would have been a tree of if-then rules --- but the moment the box grew, keeping the rules consistent turned into a maintenance nightmare.}
+\humantext{Natural Language Processing (NLP) is the branch of artificial intelligence concerned with enabling machines to read and produce language. Early NLP systems were hand-written, relying on rules and fixed word lists. Within a narrow domain such systems were effective --- a telecom FAQ bot of that era would have consisted of a tree of if-then rules --- but as the domain grew, maintaining the consistency of the rules became increasingly difficult.}
 
 \humantext{The arrival of Machine Learning between the 1990s and 2000s favored purely statistical approaches. With models such as HMMs or SVMs, it became possible to train algorithms to classify text automatically or to identify grammatical roles (\textit{POS tagging}).}
 
 \subsection{The Deep Learning Era: RNNs and LSTMs}
-\sourced{Deep Learning then transformed the field with Recurrent Neural Networks (RNNs) and their LSTM (\textit{Long Short-Term Memory}) variant introduced by Hochreiter and Schmidhuber \cite{hochreiter1997lstm}.} \humantext{Their trick was a kind of memory: a hidden state that carried information about earlier words forward. It worked, up to a point. Three problems held it back.}
+\sourced{Deep Learning then transformed the field with Recurrent Neural Networks (RNNs) and their LSTM (\textit{Long Short-Term Memory}) variant introduced by Hochreiter and Schmidhuber \cite{hochreiter1997lstm}.} \humantext{Their key feature was a form of memory: a hidden state that propagated information about earlier words forward. This approach was effective up to a point, but it suffered from three main limitations.}
 \begin{itemize}[noitemsep]
     \item \humantext{A \textbf{strictly sequential} architecture, which processes words one by one and prevents any speed-up through parallelization.}
     \item \humantext{The \textbf{vanishing gradient} problem, which sharply limits the network's ability to retain information over very long sentences.}
@@ -555,9 +503,9 @@ NFR-06 & Accessibility        & The interface is reachable from any browser with
 \end{itemize}
 
 \subsection{Word Embeddings}
-\sourced{A major advance was the introduction of \textit{word embeddings}, such as Word2Vec \cite{mikolov2013word2vec} and GloVe \cite{pennington2014glove}.} \humantext{The idea is simple. Turn each word into a dense vector of numbers. Words that mean similar things land near each other in that space. The classic example,} $\vec{king} - \vec{man} + \vec{woman} \approx \vec{queen}$ \humantext{, captures it: the maths actually encodes meaning.}
+\sourced{A major advance was the introduction of \textit{word embeddings}, such as Word2Vec \cite{mikolov2013word2vec} and GloVe \cite{pennington2014glove}.} \humantext{The underlying idea is to represent each word as a dense numerical vector, such that words with similar meanings lie close together in the vector space. The classic example,} $\vec{king} - \vec{man} + \vec{woman} \approx \vec{queen}$ \humantext{, illustrates this property: the arithmetic of the vectors encodes semantic relationships.}
 
-\humantext{There was a catch. These vectors are \textbf{static}. ``Legend'' gets one fixed vector whether it means a Djezzy plan or a hero from a myth.} \humantext{The Transformer fixed exactly that, with embeddings that shift depending on the words around them.}
+\humantext{These representations have one significant limitation: they are \textbf{static}. The word ``Legend'' is assigned a single fixed vector whether it denotes a Djezzy plan or a mythical hero.} \humantext{The Transformer architecture addresses precisely this limitation, producing embeddings that vary according to the surrounding context.}
 
 \section{The Transformer Architecture and the Attention Mechanism}
 
@@ -584,7 +532,7 @@ NFR-06 & Accessibility        & The interface is reachable from any browser with
     \item \humantext{The \textbf{decoder}: builds the answer one word at a time, using both the encoder's analysis and what it has already written.}
 \end{itemize}
 
-\humantext{Stack enough of these attention layers --- anywhere from 6 to 96 --- each with \textit{Multi-Head Attention}, and the model starts to track syntax, meaning, and intent in parallel rather than one word after another.}
+\humantext{By stacking a sufficient number of such attention layers --- typically between 6 and 96 --- each employing \textit{Multi-Head Attention}, the model is able to capture syntax, meaning, and intent in parallel rather than sequentially.}
 
 \subsection{From BERT to GPT: Two Paradigms}
 \humantext{Two major approaches grew out of this invention:}
@@ -598,14 +546,14 @@ NFR-06 & Accessibility        & The interface is reachable from any browser with
 \section{Large Language Models (LLMs)}
 
 \subsection{Definition and Principles}
-\humantext{An LLM is, concretely, a Transformer with billions of parameters that has read a huge slice of text without anyone labelling it. Training usually happens in two stages:}
+\humantext{Concretely, an LLM is a Transformer with billions of parameters trained on a very large volume of unlabelled text. Training typically proceeds in two stages:}
 \begin{enumerate}[noitemsep]
     \item \humantext{\textbf{Pre-training}: the model simply practices guessing the next word in a text, which along the way gives it an excellent command of grammar and a broad base of general knowledge.}
     \item \sourced{\textbf{Fine-tuning / instruction tuning}: the model is specialized to follow human instructions, through reinforcement learning from human feedback (RLHF) \cite{ouyang2022rlhf}.}
 \end{enumerate}
 
 \subsection{Open-Source LLMs}
-\humantext{Commercial tools like OpenAI's ChatGPT put LLMs in front of the public, but for a project like ours the open-source models matter more. They cost nothing to run, and the data never leaves our machine --- two constraints we could not negotiate around. Table~\ref{tab:llm_comparison} lists the main open players for 2025--2026.}
+\humantext{Commercial tools such as OpenAI's ChatGPT brought LLMs to the general public, but for the present project the open-source models are of greater relevance: they are free to run and keep all data on the local machine --- two non-negotiable constraints of this work. Table~\ref{tab:llm_comparison} lists the main open-source models for 2025--2026.}
 
 \begin{table}[H]
 \centering
@@ -636,7 +584,7 @@ Bloom (BigScience) & 176B & 2K & Good & Multilingual, collaborative project \\
 \section{Tokenization}
 
 \subsection{Principles of Tokenization}
-\humantext{A neural network does not read letters the way we do. It needs the text broken into \textbf{tokens} --- word fragments turned into numbers. That step, tokenization, matters more than it looks: it fixes the size of the model's vocabulary, and with it the model's speed and how cleanly it handles a given language.}
+\humantext{A neural network does not process letters as humans do; it requires the text to be divided into \textbf{tokens}, that is, word fragments converted into numbers. This step, tokenization, is more consequential than it may appear: it determines the size of the model's vocabulary and, with it, the model's speed and how well it handles a given language.}
 
 \subsection{Byte-Pair Encoding (BPE)}
 \sourced{The BPE (\textit{Byte-Pair Encoding}) algorithm, proposed by Sennrich et al. \cite{sennrich2016bpe}, is the most widely used tokenization method in modern LLMs. It works iteratively:}
@@ -654,7 +602,7 @@ Bloom (BigScience) & 176B & 2K & Good & Multilingual, collaborative project \\
 \section{The RAG Paradigm (Retrieval-Augmented Generation)}
 
 \subsection{Motivations}
-\humantext{Despite their impressive power, plain language models run into two deal-breaking problems:}
+\humantext{Despite their considerable capabilities, language models alone face two critical limitations:}
 \begin{itemize}[noitemsep]
     \item \humantext{\textbf{Stale knowledge:} an LLM's knowledge is frozen at its training date. A model trained in 2024 does not know Djezzy's 2025 plans.}
     \item \humantext{\textbf{Hallucinations:} LLMs can produce false information phrased convincingly (for example, inventing a ``200~GB for 500~DA'' plan that does not exist).}
@@ -736,12 +684,12 @@ Bloom (BigScience) & 176B & 2K & Good & Multilingual, collaborative project \\
 \sourced{While Word2Vec produces vectors for individual words, RAG applications need \textbf{whole-sentence (or paragraph) embeddings}. Sentence-BERT \cite{reimers2019sbert}, built on the BERT architecture with a \textit{pooling} layer, produces dense vectors for entire sentences, optimized for semantic-similarity computation. The E5 family \cite{wang2022e5} pushes this idea further with weakly-supervised contrastive pre-training.}
 
 \subsection{The multilingual-e5-base Model}
-\humantext{Our first instinct was a small English-centric model, but it could not handle Arabic or Darija, which is half of our traffic. We therefore chose \textbf{intfloat/multilingual-e5-base} \cite{wang2024me5}: a single model that embeds French, Arabic, English, and Darija in the \emph{same} vector space. This is what lets us drop any translation step --- a Darija question and an Arabic page land close together directly. It produces 768-dimension vectors and has two practical rules we must respect:}
+\humantext{An English-centric model was considered first, but it could not handle Arabic or Darija, which together account for a substantial share of the expected traffic. The model selected was therefore \textbf{intfloat/multilingual-e5-base} \cite{wang2024me5}: a single model that embeds French, Arabic, English, and Darija in the \emph{same} vector space. This is what lets us drop any translation step --- a Darija question and an Arabic page land close together directly. It produces 768-dimension vectors and has two practical rules we must respect:}
 \begin{itemize}[noitemsep]
     \item \humantext{\textbf{Prefixes:} documents are embedded with the prefix \texttt{passage:} and queries with \texttt{query:}. The model was trained this way, and skipping the prefixes noticeably hurts retrieval quality.}
     \item \humantext{\textbf{Normalization:} the vectors are L2-normalized, so an inner-product search equals cosine similarity (used in Section~\ref{sec:faiss}).}
 \end{itemize}
-\humantext{One multilingual model covering all four languages, with no translation layer to maintain, was worth more to us than the slightly smaller footprint of a monolingual model.}
+\humantext{A single multilingual model covering all four languages, with no translation layer to maintain, was preferred over the slightly smaller memory footprint of a monolingual model.}
 
 \subsection{Cosine Similarity}
 \humantext{Semantic search relies on the \textbf{cosine similarity} between two vectors:}
@@ -754,7 +702,7 @@ Bloom (BigScience) & 176B & 2K & Good & Multilingual, collaborative project \\
 \label{sec:faiss}
 
 \subsection{The Scaling Problem}
-\humantext{Comparing the query vector against every stored vector one by one (\textit{brute force}) is fine for a few thousand documents. Scale it to millions and it falls apart. Vector databases get around this with smarter index structures that avoid touching every vector.}
+\humantext{Comparing the query vector against every stored vector individually (\textit{brute force}) is acceptable for a few thousand documents, but it becomes impractical at the scale of millions. Vector databases overcome this through index structures that avoid an exhaustive comparison.}
 
 \subsection{FAISS (Facebook AI Similarity Search)}
 \sourced{FAISS, developed by Meta's research team (formerly Facebook) \cite{johnson2019faiss}, is an open-source library optimized for similarity search in high-dimensional vector spaces. FAISS offers several index types:}
@@ -788,7 +736,7 @@ Bloom (BigScience) & 176B & 2K & Good & Multilingual, collaborative project \\
 \section{Prompt Engineering}
 
 \subsection{Definition}
-\humantext{\textit{Prompt engineering} is the craft of wording the instructions you give an LLM so it behaves the way you need. In a RAG system the prompt does a lot of the heavy lifting: it is what pins the model to the retrieved context and keeps it from making things up.}
+\humantext{\textit{Prompt engineering} is the practice of formulating the instructions given to an LLM so that it behaves as required. In a RAG system the prompt plays a central role: it binds the model to the retrieved context and prevents it from fabricating information.}
 
 \subsection{The ChatML Format}
 \humantext{Qwen 2.5 uses the \textbf{ChatML} prompt format, which structures the conversation into distinct roles:}
@@ -803,7 +751,7 @@ Bloom (BigScience) & 176B & 2K & Good & Multilingual, collaborative project \\
 \section{Web Scraping}
 
 \subsection{Principles}
-\humantext{\textit{Web scraping} means pulling data off websites automatically. DjezzyBot's whole knowledge base comes from a single source --- the offers, services, and prices Djezzy publishes on its own sites --- so the scraper has to collect that completely and reliably.}
+\humantext{\textit{Web scraping} is the automated extraction of data from websites. DjezzyBot's entire knowledge base derives from a single source --- the offers, services, and prices Djezzy publishes on its own sites --- so the scraper must collect this data completely and reliably.}
 
 \subsection{Tools Used}
 \humantext{Two categories of tools are commonly used:}
@@ -824,10 +772,10 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
 \end{tabularx}
 \end{table}
 
-\humantext{For this project, we chose the \textbf{Playwright + BeautifulSoup} combination: Playwright browses Djezzy's site like a real browser (rendering the JavaScript), then BeautifulSoup parses the resulting HTML to extract the cleaned text.}
+\humantext{This project adopted the \textbf{Playwright + BeautifulSoup} combination: Playwright navigates Djezzy's site as a real browser would, rendering the JavaScript, after which BeautifulSoup parses the resulting HTML to extract the cleaned text.}
 
 \section{Speech Processing: STT and TTS}
-\humantext{Text alone is not enough for our users --- many would rather talk than type, especially in Darija. So the assistant needs two more pieces: one to turn speech into text, and one to turn its answer back into speech.}
+\humantext{Text input alone is insufficient for the target users, many of whom prefer speaking to typing, particularly in Darija. The assistant therefore requires two additional components: one to convert speech into text, and another to convert its answer back into speech.}
 
 \subsection{Speech-to-Text (Speech Recognition)}
 \sourced{The STT module transcribes audio to text. The current state of the art is dominated by \textbf{Whisper} (OpenAI) \cite{radford2023whisper}, an encoder-decoder Transformer trained on more than 680{,}000 hours of multilingual audio. Whisper is especially good at:}
@@ -837,16 +785,16 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
     \item \humantext{\textbf{Automatic detection} of the spoken language.}
 \end{itemize}
 
-\humantext{We use \texttt{whisper-medium} rather than the smaller \texttt{whisper-small}: medium transcribes Arabic and Darija noticeably better, which matters for our users. To keep it affordable on the T4, we run it through \textbf{faster-whisper} (a CTranslate2 re-implementation) in \texttt{float16}, which holds the weights at about 1.5~GB instead of the roughly 3~GB of the original fp32 model, and is faster too.}
+\humantext{The \texttt{whisper-medium} model is used rather than the smaller \texttt{whisper-small}, as it transcribes Arabic and Darija noticeably better, which is important for the target users. To keep its cost manageable on the T4, it is run through \textbf{faster-whisper} (a CTranslate2 re-implementation) in \texttt{float16}, which holds the weights at about 1.5~GB instead of the roughly 3~GB of the original fp32 model, and is faster too.}
 
 \subsection{Text-to-Speech (Speech Synthesis)}
 \humantext{The TTS module turns the LLM's text answer into natural speech. We considered two families of solutions:}
 \begin{itemize}
-    \item \humantext{\textbf{Cloud TTS (e.g. Microsoft Edge-TTS):} very natural neural voices with no VRAM cost on the inference machine. We tried this early, but it sends every answer to an external server --- which clashes with our goal of a fully local, sovereign, open-source stack --- so we did not keep it.}
+    \item \humantext{\textbf{Cloud TTS (e.g. Microsoft Edge-TTS):} very natural neural voices with no VRAM cost on the inference machine. This option was tested early in the project, but it sends every answer to an external server, which conflicts with the goal of a fully local, sovereign, open-source stack, and was therefore discarded.}
     \item \sourced{\textbf{On-device neural TTS (VITS \cite{kim2021vits}, Coqui XTTS-v2 \cite{casanova2024xtts}):} models that run locally on the GPU. VITS is an end-to-end conditional VAE with adversarial training; XTTS-v2 extends this idea to a massively multilingual, zero-shot voice that covers French, English, and Arabic.}
 \end{itemize}
 
-\humantext{For this project we chose \textbf{Coqui XTTS-v2}: it is multilingual, it runs locally (no external API), and it is loaded \emph{on demand} --- only when a voice answer is actually requested --- so it costs no VRAM while the user is only typing. Darija has no dedicated XTTS voice, so we speak it with the Arabic voice, which is consistent with answering Darija in Modern Standard Arabic.}
+\humantext{This project adopted \textbf{Coqui XTTS-v2}: it is multilingual, runs locally without any external API, and is loaded \emph{on demand} --- only when a voice answer is actually requested --- so that it consumes no VRAM while the user is only typing. Darija has no dedicated XTTS voice and is therefore synthesized with the Arabic voice, consistent with answering Darija in Modern Standard Arabic.}
 
 \section{Linguistic Challenges: Darija and Code-Switching}
 \humantext{Designing an assistant for an Algerian audience raises specific challenges that deserve particular attention.}
@@ -873,10 +821,10 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
 \subsection{Academic Work on Algerian and Maghrebi Dialectal NLP}
 \humantext{Our project leans on this dialectal research, so it is worth saying plainly where the field stands --- and being honest that almost all of it tackles narrower tasks than a full assistant.} \sourced{The most directly relevant resource is the \textbf{NArabizi} treebank \cite{seddah2020narabizi}: about 1{,}500 sentences of romanized Algerian user-generated content, annotated for morphology and syntax, built precisely because code-switching makes this variety so hard to parse.} \sourced{On the model side, \textbf{DziriBERT} \cite{abdaoui2021dziribert} is the first Transformer language model pre-trained specifically for the Algerian dialect, covering both Arabic-script and Arabizi text; its Moroccan counterpart \textbf{DarijaBERT} \cite{gaanoun2024darijabert} follows the same recipe on the largest written-Darija corpus assembled to date.} \sourced{For raw data, \textbf{DZDC12} \cite{abainia2019dzdc12} is a parallel Algerian Arabizi--French code-switched corpus spanning twelve cities, and \textbf{TUNIZI} \cite{fourati2020tunizi} offers a large Tunisian Arabizi sentiment set.}
 
-\humantext{Two things stand out when you line these up against our problem. First, they are almost all \emph{encoder} models or \emph{annotated corpora} aimed at classification --- sentiment, parsing, offensive-language detection --- not generative question answering, and none ships as a deployed multilingual assistant grounded in a live commercial knowledge base. Second, a dialect-specific encoder like DziriBERT could in principle sharpen retrieval, but it is monolingual by dialect: on its own it would not place a Darija question and a French offer page in the \emph{same} vector space the way \texttt{multilingual-e5} does, which is the property our no-translation design depends on. The gap, then, is not a shortage of dialectal building blocks --- it is that no prior work ties them into an end-to-end, voice-and-text telecom RAG assistant for the Algerian language mix. That is the space DjezzyBot occupies, and we come back to DziriBERT as a concrete fine-tuning avenue in the conclusion.}
+\humantext{Two observations stand out when these resources are compared with the present problem. First, they are almost all \emph{encoder} models or \emph{annotated corpora} aimed at classification --- sentiment, parsing, offensive-language detection --- not generative question answering, and none ships as a deployed multilingual assistant grounded in a live commercial knowledge base. Second, a dialect-specific encoder like DziriBERT could in principle sharpen retrieval, but it is monolingual by dialect: on its own it would not place a Darija question and a French offer page in the \emph{same} vector space the way \texttt{multilingual-e5} does, which is the property our no-translation design depends on. The gap, then, is not a shortage of dialectal building blocks --- it is that no prior work ties them into an end-to-end, voice-and-text telecom RAG assistant for the Algerian language mix. That is the space DjezzyBot occupies, and we come back to DziriBERT as a concrete fine-tuning avenue in the conclusion.}
 
 \section{Virtual Assistants in Telecom: State of Play}
-\humantext{Telecom operators have used virtual assistants for years. The catch is that almost all of them are proprietary:}
+\humantext{Telecom operators have employed virtual assistants for several years. However, almost all of these systems are proprietary:}
 \begin{itemize}
     \item \aitext{\textbf{TOBi (Vodafone):} a proprietary chatbot built on commercial NLU engines, handling more than 70\,\% of customer requests without human intervention.}
     \item \aitext{\textbf{Djingo (Orange France):} an assistant using Nuance Communications' NLU for call routing and FAQs.}
@@ -885,10 +833,47 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
 
 \humantext{These solutions perform well, but they have major limitations for the Algerian context: no Darija support, high licensing costs, and dependence on foreign cloud infrastructure. DjezzyBot positions itself as an \textbf{open-source, sovereign, multilingual alternative}, fitted to Algeria's linguistic and economic realities.}
 
-\section{Conclusion}
-\humantext{This chapter laid out the ground our system stands on. We traced NLP from hand-written rules to Transformers and LLMs, and saw how RAG, a vector database like FAISS, and 4-bit quantization together make it realistic to run a capable assistant on a single free GPU instead of a server farm.}
+\section{Related Work: Existing Approaches, Their Limitations, and Our Motivation}
+\humantext{A virtual assistant such as DjezzyBot draws on three research domains at once: retrieval-augmented question answering, commercial conversational assistants in telecom, and Arabic and Algerian dialectal NLP. Rather than simply listing these works, this section examines the most relevant ones, extracts the specific \emph{limitation} of each with respect to our problem, and then shows how these limitations, taken together, motivated the design choices that led to the result evaluated in Chapter~5. This limitation-driven reasoning is what justifies why DjezzyBot is built the way it is, and not otherwise.}
 
-\humantext{Put together, these open-source pieces --- Qwen2.5, multilingual-e5, Whisper, and Coqui XTTS-v2 on top of RAG --- are everything we need for a sovereign, accurate assistant that fits the Algerian language mix. The next chapter shows how we actually assembled them into DjezzyBot.}
+\subsection{Retrieval-Augmented Question-Answering Systems}
+\sourced{\textbf{Dense Passage Retrieval (DPR)} \cite{karpukhin2020dpr} showed that a dual-encoder trained with a contrastive objective outperforms classical sparse lexical methods such as BM25 on open-domain question answering, and it established the dense-retrieval paradigm that our FAISS index follows.} \humantext{\emph{Limitation for our case:} the DPR retriever must be \emph{trained} on tens of thousands of labelled question--passage pairs, a dataset that simply does not exist for the Algerian Djezzy catalogue, and it is monolingual English.}
+
+\sourced{\textbf{REALM} \cite{guu2020realm} went further and integrated a learned retriever directly into language-model pre-training, making retrieval an end-to-end, trainable component.} \humantext{\emph{Limitation for our case:} pre-training a retriever jointly with the language model is far beyond the compute budget of a single free GPU, and it again targets English rather than a French/Arabic/Darija mix.}
+
+\sourced{\textbf{RAG} \cite{lewis2020rag} combined a DPR retriever with a sequence-to-sequence generator, establishing the ``retrieve first, then generate'' template that our system adopts, and \textbf{Fusion-in-Decoder (FiD)} \cite{izacard2021fid} refined how several retrieved passages are fused inside the decoder; the broader design space is surveyed by Gao et al. \cite{gao2023ragsurvey}.} \humantext{\emph{Limitation for our case:} both assume a trained retriever and were evaluated on large English benchmarks (Natural Questions, TriviaQA). Neither handles code-switched French, Arabic, and Darija, nor coined commercial names (such as ``Campuce'') that appear in no training corpus and are therefore invisible to a purely semantic retriever.}
+
+\subsection{Commercial Virtual Assistants in Telecom}
+\humantext{On the industrial side, operators already deploy assistants such as \textbf{TOBi} (Vodafone), \textbf{Djingo} (Orange), and \textbf{Google Contact Center AI}, which handle a large share of customer requests using commercial NLU engines.} \humantext{\emph{Limitation for our case:} these systems are proprietary and cloud-hosted, which entails high licensing costs, no sovereignty over subscriber data, and dependence on foreign infrastructure; crucially, none of them supports Algerian Darija. They cannot be adopted, inspected, or adapted in an academic, sovereign, open-source setting.}
+
+\subsection{Arabic and Algerian Dialectal NLP}
+\humantext{The dialect-specific resources reviewed earlier in this chapter --- \textbf{DziriBERT} \cite{abdaoui2021dziribert}, \textbf{DarijaBERT} \cite{gaanoun2024darijabert}, and the \textbf{NArabizi} treebank \cite{seddah2020narabizi} --- are the closest works to the linguistic side of our problem.} \humantext{\emph{Limitation for our case:} they are \emph{encoder} models or \emph{annotated corpora} aimed at classification and parsing (sentiment, offensive-language detection, syntax), not generative question answering, and none is a deployed, grounded assistant. Moreover, a dialect-specific encoder is monolingual by dialect: on its own it does not place a Darija question and a French offer page in the \emph{same} vector space, which is exactly the property our no-translation design requires.}
+
+\subsection{Synthesis: Identified Gaps and the Resulting Solution}
+\humantext{Placing these limitations side by side reveals a clear, unfilled gap: no prior work offers a \emph{closed-domain, multilingual, voice-and-text assistant} that is grounded in a live commercial catalogue, handles the Algerian language mix without translation, retrieves coined commercial names reliably, and runs fully locally on free hardware. Each gap maps directly onto a design decision in DjezzyBot, as summarized in Table~\ref{tab:related_work}. It is precisely this chain of limitations that motivated our solution.}
+
+\begin{table}[H]
+\centering
+\caption{From the limitations of existing works to the design decisions of DjezzyBot}
+\label{tab:related_work}
+\begin{tabularx}{\textwidth}{X X}
+\toprule
+\textbf{Limitation of existing works} & \textbf{Design decision in DjezzyBot (our motivation)} \\
+\midrule
+DPR / RAG / FiD need a \emph{trained} retriever and labelled data that do not exist for the Djezzy catalogue & Off-the-shelf dense \texttt{multilingual-e5} index, used \emph{without} any retriever training \\
+These systems are English / monolingual and rely on translation for other languages & A single multilingual embedding space (FR/AR/EN/Darija) with \emph{no} translation layer \\
+Purely semantic retrievers miss coined commercial names (``Campuce'', ``iZZY'') & A rule-based intent router with exact name matching in front of the dense index \\
+REALM-style and large RAG pipelines require server-class compute & 4-bit (NF4) quantization, so the whole stack fits on one free T4 GPU \\
+TOBi / Djingo are proprietary, cloud-hosted, with no Darija and no data sovereignty & A fully local, open-source stack; subscriber data never leaves the machine; Darija supported \\
+DziriBERT / DarijaBERT are encoders for classification, not grounded generation & A grounded RAG pipeline (Qwen2.5-7B) that \emph{answers} from the catalogue and refuses out-of-domain queries \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Conclusion}
+\humantext{This chapter set out the foundations on which the system is built. It traced the evolution of NLP from hand-written rules to Transformers and LLMs, and showed how RAG, a vector database such as FAISS, and 4-bit quantization together make it feasible to run a capable assistant on a single free GPU rather than a server farm.}
+
+\humantext{Taken together, these open-source components --- Qwen2.5, multilingual-e5, Whisper, and Coqui XTTS-v2 on top of RAG --- provide everything required for a sovereign, accurate assistant suited to the Algerian language mix. The next chapter describes how they were assembled into DjezzyBot.}
 
 % ================================================================
 % CHAPITRE 3 : CONCEPTION ET ARCHITECTURE DU SYSTÈME
@@ -897,7 +882,7 @@ Scrapy & Full framework & Powerful for large-scale crawling, but a steep learnin
 \chapter{System Design and Architecture}
 
 \section{Introduction}
-\humantext{With the background settled, this chapter turns to how DjezzyBot is actually designed.} \humantext{We start with a bird's-eye view of the system, then go component by component: the scraper, the vector knowledge base, the rule-based intent router, multilingual handling without translation, the off-domain safeguards, and the voice modules. For each one the aim is the same --- explain the choice we made and why, and show how the pieces lock together.}
+\humantext{With the background established, this chapter presents the design of DjezzyBot.} \humantext{It begins with an overview of the system and then proceeds component by component: the scraper, the vector knowledge base, the rule-based intent router, multilingual handling without translation, the out-of-domain safeguards, and the voice modules. For each component, the aim is to explain the design choice and its rationale, and to show how the components fit together.}
 
 \section{Architecture Overview}
 
@@ -1107,7 +1092,7 @@ Zid         & 5  & Roaming  & 38 \\
 \section{The Intent Router}
 
 \subsection{Problem}
-\humantext{Pure dense search sounded clean on paper. Our early tests said otherwise. Cosine similarity over FAISS, on its own, broke in five separate ways:}
+\humantext{Pure dense search appeared attractive in principle, but early testing showed otherwise. Cosine similarity over FAISS, used alone, failed in five distinct ways:}
 \begin{itemize}[noitemsep]
     \item \humantext{\textbf{Missed offer names:} the embedding model did not always rank an offer's own page first for a coined commercial name (``Campuce'', ``iZZY''), because these words appear in no dictionary.}
     \item \humantext{\textbf{Comparison imbalance:} for ``Legend vs iZZY'', dense search tended to return many chunks of one offer and only a few of the other, biasing the comparison.}
@@ -1117,7 +1102,7 @@ Zid         & 5  & Roaming  & 38 \\
 \end{itemize}
 
 \subsection{Solution: a Rule-Based Router with Seven Routes}
-\humantext{So we put a router in front of the search. It is a plain set of rules (\texttt{smart\_retrieve}) that reads the question \emph{before} FAISS ever runs and picks one of \numRoutes{} routes. Let us be clear about what this is not. It is not a hybrid retriever. No BM25, no neural re-ranker. The vector search stays pure dense FAISS; the router only decides \emph{how} to query it. Routes are tried in a fixed order, so an ambiguous question falls to the most specific rule that fits:}
+\humantext{To address these failures, a router is placed in front of the search. It is a rule-based component (\texttt{smart\_retrieve}) that reads the question \emph{before} FAISS is invoked and selects one of \numRoutes{} routes. It is important to clarify what this component is not: it is not a hybrid retriever, and it uses neither BM25 nor a neural re-ranker. The vector search remains pure dense FAISS; the router only determines \emph{how} the index is queried. The routes are evaluated in a fixed order, so that an ambiguous question is handled by the most specific applicable rule:}
 
 \begin{enumerate}[noitemsep]
     \item \humantext{\textbf{Competitor} --- the question names Ooredoo or Mobilis (Latin or Arabic script) as its subject. The router returns a sentinel and the bot answers with a polite ``Djezzy only'' refusal, with no LLM call. A brand mentioned only as a \emph{call destination} (``calls to Mobilis'') is allowed through.}
@@ -1129,10 +1114,10 @@ Zid         & 5  & Roaming  & 38 \\
     \item \humantext{\textbf{Normal} --- the fallback: dense search with $k=5$, guarded against out-of-domain questions (Section~\ref{sec:ood}).}
 \end{enumerate}
 
-\humantext{This is where the ``Campuce'' problem from Chapter~1 finally gets solved. We stopped hoping the embedding model would understand an invented name. Instead the router walks the FAISS docstore itself and grabs the chunks whose text literally contains the offer name, matched whole-word and accent-insensitive. The right offer is there even when dense ranking buried it.}
+\humantext{This mechanism resolves the ``Campuce'' problem introduced in Chapter~1. Rather than relying on the embedding model to interpret an invented name, the router traverses the FAISS docstore directly and selects the chunks whose text literally contains the offer name, matched whole-word and accent-insensitively. The correct offer is thus retrieved even when dense ranking would have ranked it low.}
 
 \subsection{Deterministic Cheapest-First Ordering}
-\humantext{Every route that shows priced offers sorts them \textbf{cheapest-first in Python}. The LLM never sorts. One shared helper splits an offer's text into tier blocks at each subscription-price boundary, skips the things that are not tier prices (per-unit rates like ``5~DA/SMS'', crédit and bonus amounts), and reorders what is left in ascending order. The context the model receives is already in the right order, so the answer no longer hinges on the model obeying ``list from cheapest to most expensive''. That one principle killed two bugs at once: random tier order, and dumping every detail on screen.}
+\humantext{Every route that presents priced offers sorts them \textbf{cheapest-first in Python}; the LLM never performs the sorting. A shared helper splits an offer's text into tier blocks at each subscription-price boundary, discards amounts that are not tier prices (per-unit rates such as ``5~DA/SMS'', and crédit or bonus amounts), and reorders the remaining blocks in ascending order. The context supplied to the model is therefore already correctly ordered, so the answer no longer depends on the model obeying an instruction to ``list from cheapest to most expensive''. This single principle eliminated two defects simultaneously: arbitrary tier ordering, and the indiscriminate display of every detail.}
 
 \begin{figure}[H]
 \centering
@@ -1179,14 +1164,14 @@ Zid         & 5  & Roaming  & 38 \\
 \end{figure}
 
 \subsection{Context Assembly}
-\humantext{We deliberately kept retrieval simple: there is \emph{no} second-stage neural re-ranker (such as a cross-encoder) and \emph{no} lexical BM25 stage. The router already selects the right chunks and orders the priced ones cheapest-first, so a re-ranker would add latency and a model to load for little gain on a corpus this small.}
+\humantext{Retrieval was deliberately kept simple: there is \emph{no} second-stage neural re-ranker (such as a cross-encoder) and \emph{no} lexical BM25 stage. The router already selects the appropriate chunks and orders the priced ones cheapest-first, so a re-ranker would add latency and an additional model to load for little benefit on a corpus of this size.}
 
 \humantext{The selected chunks are concatenated into a single context block, each prefixed with a \texttt{[Source: url]} header for traceability, and the block is capped at \texttt{MAX\_CONTEXT\_CHARS = 8000} characters. This cap is large enough to hold a full named-offer page or one snippet per family in a catalogue listing, while keeping the prompt short enough for fast generation on the T4. Because the chunks arrive already ordered, truncation drops only the least relevant tail.}
 
 \section{Lexicon: Query Expansion and the Competitor Firewall}
 
 \subsection{Query Expansion}
-\humantext{The lexicon (\texttt{data/lexicon.py}) holds a small, hand-built vocabulary used \emph{before} the question is embedded. \texttt{expand\_synonyms} appends Djezzy-specific terms for any phrase it recognizes, so the embedding sees the right vocabulary even when the user wrote slang or a generic word.}
+\humantext{The lexicon (\texttt{data/lexicon.py}) contains a small, manually constructed vocabulary applied \emph{before} the question is embedded. \texttt{expand\_synonyms} appends Djezzy-specific terms for any recognized phrase, so that the embedding receives the appropriate vocabulary even when the user employs slang or a generic word.}
 
 \humantext{\textbf{Example:} when the user types ``\textit{je veux beaucoup de gigas}'', the lexicon detects ``gigas'' and ``beaucoup'' and appends ``go data volume'' and ``max grand volume go'', giving the embedder a clearer signal.}
 
@@ -1208,12 +1193,12 @@ Zid         & 5  & Roaming  & 38 \\
     \textit{``I am Djezzy's virtual assistant and cannot provide information about other operators. I'd be glad to tell you about Djezzy's offers.''}
 \end{quote}
 
-\humantext{One subtlety is worth noting: a bare brand mention is not always a competitor question. A Djezzy offer legitimately advertises ``unlimited calls to Ooredoo and Mobilis'', so the router refuses only when no call-destination cue (``vers'', ``calls to''\ldots) precedes the brand. This avoids wrongly refusing a real Djezzy question. Because it runs in pure Python (no LLM), the refusal is instant and deterministic for every brand spelling on our list. We are careful not to oversell it, though: the match is literal, so a misspelling we did not anticipate (``Oredoo'' for Ooredoo) would slip past this guard and fall through to the LLM, which then declines it under its own no-competitor rule. The firewall is a fast, reliable first line --- not an infallible one --- and the LLM rule is the backstop behind it.}
+\humantext{One subtlety should be noted: a bare brand mention does not always constitute a competitor question. A Djezzy offer legitimately advertises ``unlimited calls to Ooredoo and Mobilis'', so the router refuses only when no call-destination cue (``vers'', ``calls to''\ldots) precedes the brand. This avoids wrongly refusing a genuine Djezzy question. Because it runs in pure Python with no LLM, the refusal is instant and deterministic for every brand spelling on the list. It is important not to overstate the mechanism, however: the match is literal, so an unanticipated misspelling (``Oredoo'' for Ooredoo) would bypass this guard and fall through to the LLM, which then declines it under its own no-competitor rule. The firewall is a fast and reliable first line of defense rather than an infallible one, and the LLM rule serves as the backstop behind it.}
 
 \section{Multilingual Handling Without Translation}
 
 \subsection{No Translation Layer}
-\humantext{An early design translated every non-French question into French, queried the base, and translated the answer back. We dropped this entirely. Translation added latency, and the Opus-MT models we tried corrupted brand names and prices --- ``\textarabic{عروض جيزي ليجند}'' (Djezzy Legend offers) once came back as ``offres de Jezzie pour le recrutement'', with the model reading ``\textarabic{ليجند}'' (Legend) as the Arabic word for ``recruitment''. Working around this with placeholder tokens was fragile and never fully reliable.}
+\humantext{An early design translated every non-French question into French, queried the base, and translated the answer back. This approach was abandoned entirely. Translation added latency, and the Opus-MT models that were tested corrupted brand names and prices --- ``\textarabic{عروض جيزي ليجند}'' (Djezzy Legend offers) once came back as ``offres de Jezzie pour le recrutement'', with the model reading ``\textarabic{ليجند}'' (Legend) as the Arabic word for ``recruitment''. Mitigating this with placeholder tokens proved fragile and never fully reliable.}
 
 \humantext{The multilingual embedding model removes the need for all of this. Because \texttt{multilingual-e5} places French, Arabic, English, and Darija in the same vector space, a question is embedded \emph{directly} in its own language and still matches the right (often Arabic or French) page. For the answer, we rely on Qwen2.5's native multilingual ability: a short directive placed in the \emph{user} turn (``Reply entirely in English'', ``\textarabic{أجب بالكامل باللغة العربية الفصحى}'') tells the model which language to answer in, with no separate translation step and nothing to corrupt the prices.}
 
@@ -1229,10 +1214,10 @@ Zid         & 5  & Roaming  & 38 \\
 \section{Out-of-Domain Handling}
 \label{sec:ood}
 
-\humantext{DjezzyBot has to turn away the weather, jokes, politics, anything that is not Djezzy. And it has to do that without ever slamming the door on a real customer. We do it in \textbf{two layers}. The design rests on a small calibration experiment that turned out to be one of our more interesting findings.}
+\humantext{DjezzyBot must decline questions outside its domain --- the weather, jokes, politics, anything unrelated to Djezzy --- without ever wrongly refusing a genuine customer. This is achieved through \textbf{two layers}. The design rests on a small calibration experiment that proved to be one of the more interesting findings of this work.}
 
 \subsection{Why a Score Threshold Does Not Work}
-\humantext{The obvious move is a threshold: refuse when the best chunk scores below some cutoff. We tried exactly that. On the real index, across about 95 queries in all four languages, the threshold simply could not tell on-topic from off-topic. Here is the catch with \texttt{multilingual-e5}. It scores \emph{everything} high, and the bands overlap (Table~\ref{tab:ood_calib}). Real questions, off-topic noise, even pure keyboard mash, all crowd into the same 0.77 to 0.85 band. Worse, gibberish sometimes outscored a genuine short question. The lowest real score we saw was a Darija question at 0.774, sitting below plenty of nonsense.}
+\humantext{The obvious approach is a threshold: refuse when the best chunk scores below a given cutoff. This was tested directly. On the real index, across about 95 queries in all four languages, the threshold could not distinguish on-topic from off-topic input. The difficulty lies in the behavior of \texttt{multilingual-e5}: it assigns high scores to \emph{all} input, and the score bands overlap (Table~\ref{tab:ood_calib}). Real questions, off-topic noise, and even pure keyboard mash all fall within the same 0.77--0.85 band. Moreover, gibberish sometimes scored higher than a genuine short question: the lowest real score observed was a Darija question at 0.774, below many nonsensical inputs.}
 
 \begin{table}[H]
 \centering
@@ -1250,12 +1235,12 @@ Pure gibberish (keyboard mash)        & 0.798 -- 0.838 \\
 \end{table}
 
 \subsection{The Two-Layer Design}
-\humantext{If the score cannot judge relevance, we should not ask it to. So we don't. Instead:}
+\humantext{If the score cannot judge relevance, it should not be used for that purpose. The design therefore proceeds as follows:}
 \begin{enumerate}[noitemsep]
     \item \humantext{\textbf{A low score floor} (\texttt{OOD\_MIN\_SIMILARITY = 0.70}) trips only on degenerate input (a broken embedding, a best match below everything observed). It is set far below the real-customer band, so it never fires on genuine traffic.}
     \item \humantext{\textbf{The LLM's domain-scope rule} (rule~1 of the system prompt) is the real judge: it decides by \emph{meaning} whether a question is about Djezzy, and politely declines anything that is not.}
 \end{enumerate}
-\humantext{It is a deliberate trade. A cleverly worded off-topic question might occasionally slip a partial answer through, and we can live with that. What we could not live with is refusing a real customer, a short Darija question say, just because its score sat low. For a bot that faces actual customers, the trade is worth it.}
+\humantext{This is a deliberate trade-off. A carefully worded off-topic question may occasionally elicit a partial answer, which is acceptable. What is not acceptable is refusing a genuine customer --- a short Darija question, for instance --- merely because its score is low. For an assistant facing real customers, this trade-off is justified.}
 
 \section{Applied Prompt Engineering}
 
@@ -1378,7 +1363,7 @@ Language & Python 3.12 & Main programming language \\
 \chapter{Implementation}
 
 \section{Introduction}
-\humantext{The design is settled. Now we build it. This chapter is the engineering story.} \humantext{It starts with the environment we worked in, tight on hardware, and the day we gave up on a cloud API and moved everything local. Then come the parts of the code that hold the system together: loading Qwen2.5-7B in 4-bit, the intent router, the lexicon. We finish on the Gradio interface, where text and voice live in one conversation.}
+\humantext{With the design established, this chapter presents its implementation.} \humantext{It begins with the development environment and its hardware constraints, and the decision to abandon a cloud API in favor of a fully local stack. It then describes the core code that holds the system together: loading Qwen2.5-7B in 4-bit, the intent router, and the lexicon. It concludes with the Gradio interface, in which text and voice share a single conversation.}
 
 \section{Deployment Environment and Technology Transition}
 
@@ -1448,7 +1433,7 @@ Coqui XTTS-v2 (synthesis)             & $\sim$2.0~GB & on demand (voice only) \\
 \end{table}
 
 \subsection{The Intent Router (classify\_route)}
-\humantext{The router is the single source of truth for the user's intent. A pure function, \texttt{classify\_route}, reads the question and returns one of the seven routes in strict priority order. Both retrieval and the answer style are driven by its result, so they can never drift apart --- the disconnect that once caused the ``dumps everything'' and ``random order'' bugs. Listing~\ref{lst:smart_retrieve} shows this dispatch logic.}
+\humantext{The router is the single source of truth for the user's intent. A pure function, \texttt{classify\_route}, reads the question and returns one of the seven routes in strict priority order. Both retrieval and the answer style are determined by its result, so the two cannot diverge --- the inconsistency that previously caused the ``dumps everything'' and ``random order'' defects. Listing~\ref{lst:smart_retrieve} shows this dispatch logic.}
 
 \begin{lstlisting}[language=Python, caption={Priority-ordered intent classification}, label={lst:smart_retrieve}]
 def classify_route(query):
@@ -1470,10 +1455,10 @@ def classify_route(query):
     return "normal"
 \end{lstlisting}
 
-\humantext{Each priced route then orders offers cheapest-first \emph{in Python}. The named-offer route, for instance, returns the offer's whole page and sorts its tier blocks by ascending subscription price (skipping per-unit rates and crédit/bonus amounts), so the model never has to sort --- the fix for Cam Puce's seven tiers coming back in arbitrary order.}
+\humantext{Each priced route then orders offers cheapest-first \emph{in Python}. The named-offer route, for example, returns the offer's entire page and sorts its tier blocks by ascending subscription price (excluding per-unit rates and crédit/bonus amounts), so that the model never performs the sorting --- the fix for Cam Puce's seven tiers being returned in arbitrary order.}
 
 \subsection{Deterministic Cheapest-First Ordering (the Cam Puce fix)}
-\humantext{This sort is one of the project's core contributions, so we show it rather than just describe it. The difficulty is that Djezzy renders a price first and its label on the next line, and mixes genuine subscription tiers with per-unit tariffs (``5~DA/SMS''), decimal rates (``4,99~DA''), and crédit/bonus figures on the same page. A single shared helper, \texttt{\_split\_offer\_blocks}, decides what counts as a tier boundary --- so the budget filter and the price sorter can never disagree --- and \texttt{\_sort\_offer\_text\_by\_price} reorders the blocks so the context handed to the LLM is \emph{already} cheapest-first (Listing~\ref{lst:tiersort}).}
+\humantext{This sorting is one of the project's core contributions and is therefore presented in full rather than merely described. The difficulty is that Djezzy renders a price first and its label on the next line, and mixes genuine subscription tiers with per-unit tariffs (``5~DA/SMS''), decimal rates (``4,99~DA''), and crédit/bonus figures on the same page. A single shared helper, \texttt{\_split\_offer\_blocks}, determines what constitutes a tier boundary --- so that the budget filter and the price sorter can never disagree --- and \texttt{\_sort\_offer\_text\_by\_price} reorders the blocks so that the context handed to the LLM is \emph{already} cheapest-first (Listing~\ref{lst:tiersort}).}
 
 \begin{lstlisting}[language=Python, caption={Tier-block splitting and deterministic cheapest-first reordering}, label={lst:tiersort}]
 def _is_tier_price(lines, i):
@@ -1511,7 +1496,7 @@ def _sort_offer_text_by_price(text):
     return "\n".join(t for t in ordered if t.strip())
 \end{lstlisting}
 
-\humantext{Because the ordering happens here, in deterministic Python, the answer no longer hinges on the model obeying ``list from cheapest to most expensive'' --- the single change that killed both the ``random tier order'' and the ``dumps everything on screen'' bugs at once.}
+\humantext{Because the ordering is performed here, in deterministic Python, the answer no longer depends on the model obeying an instruction to ``list from cheapest to most expensive'' --- the single change that eliminated both the ``random tier order'' and the ``dumps everything on screen'' defects at once.}
 
 \subsection{Query Expansion and the Competitor Firewall}
 \humantext{Before a question is embedded, the lexicon expands it with Djezzy vocabulary, and the competitor firewall refuses questions whose \emph{subject} is a rival operator. Listing~\ref{lst:lexical} shows both, including the call-destination exception that keeps a real Djezzy question (``calls to Mobilis'') from being wrongly refused.}
@@ -1543,7 +1528,7 @@ def _is_competitor_query(query):
 
 \section{Data Cleaning and the Daily Refresh}
 \label{sec:refresh_impl}
-\humantext{The knowledge base is only as good as the text that reaches it, and the ``easy updates'' requirement (NFR-04) only holds if the refresh actually runs on its own. Both are implemented in code, so we show them here.}
+\humantext{The knowledge base is only as good as the text that reaches it, and the ``easy updates'' requirement (NFR-04) holds only if the refresh runs autonomously. Both aspects are implemented in code and are presented here.}
 
 \subsection{HTML Cleaning (\texttt{clean\_html})}
 \humantext{An early crawl let Djezzy's mega-menu blocks leak into every page, which polluted the index and triggered hallucinations (Chapter~3). The cleaner removes noise in two passes --- whole tags, then any element whose \texttt{class}/\texttt{id} sub-tokens signal chrome --- with two safety rules learned the hard way: never decompose \texttt{<html>}/\texttt{<body>} (Bootstrap puts \texttt{modal-open} on \texttt{<body>}, and a naive match once wiped a whole page), and match \emph{sub-tokens} split on \texttt{-}/\texttt{\_} rather than raw substrings (so \texttt{mega} does not eat \texttt{omega}). Listing~\ref{lst:cleanhtml} shows it.}
@@ -1635,7 +1620,7 @@ def voice_answer(audio_path, vector_db, history=None):
 \end{lstlisting}
 
 \section{Deployment, Logging, and Security}
-\humantext{Two operational points deserve a mention, because a prototype that ignores them stores up trouble for later. \textbf{Logging:} every module writes through Python's \texttt{logging} at \texttt{INFO} level, so each request leaves a trace --- the route taken, the per-stage timing, any retry or fallback --- which is exactly what made the latency measurements and the failure triage of Chapter~5 possible. \textbf{Security:} the Gradio app is launched with a public share link (\texttt{share=True}). That is the right choice for a demo --- anyone with the URL can try the bot from a phone --- but it is an \emph{unauthenticated, temporary tunnel} and must not be mistaken for a production endpoint. A real deployment would sit behind authentication on Djezzy's own infrastructure (the ``private-infrastructure'' direction of Chapter~5), not on a throwaway public URL. The exposure of the prototype itself is limited --- it serves only Djezzy's public catalogue and holds no subscriber data --- but the principle stands.}
+\humantext{Two operational points deserve mention, since a prototype that neglects them creates difficulties later. \textbf{Logging:} every module writes through Python's \texttt{logging} at \texttt{INFO} level, so each request leaves a trace --- the route taken, the per-stage timing, any retry or fallback --- which is exactly what made the latency measurements and the failure triage of Chapter~5 possible. \textbf{Security:} the Gradio app is launched with a public share link (\texttt{share=True}). That is the right choice for a demo --- anyone with the URL can try the bot from a phone --- but it is an \emph{unauthenticated, temporary tunnel} and must not be mistaken for a production endpoint. A real deployment would sit behind authentication on Djezzy's own infrastructure (the ``private-infrastructure'' direction of Chapter~5), not on a throwaway public URL. The exposure of the prototype itself is limited --- it serves only Djezzy's public catalogue and holds no subscriber data --- but the principle stands.}
 
 \humantext{For reproducibility, Table~\ref{tab:versions} pins the main software versions the system was built and measured on.}
 
@@ -1674,7 +1659,7 @@ gradio                & $\ge$ 4.44       & web interface \\
 \chapter{Testing, Evaluation, and Architecture Comparison}
 
 \section{Introduction}
-\humantext{Having described how DjezzyBot is built, we now validate its behavior with a concrete test protocol.} \humantext{This chapter presents the acceptance-test suite we use to check language detection, intent routing, and factual grounding end to end. We then report the results across four languages, give the per-stage latency, and compare our local open-source stack with the cloud-API prototype we started from.}
+\humantext{Having described how DjezzyBot is built, this chapter validates its behavior through a concrete test protocol.} \humantext{It presents the acceptance-test suite used to verify language detection, intent routing, and factual grounding end to end. It then reports the results across the four languages, gives the per-stage latency, and compares the local open-source stack with the cloud-API prototype from which the project started.}
 
 \section{Evaluation Methodology}
 
@@ -1715,7 +1700,7 @@ gradio                & $\ge$ 4.44       & web interface \\
 \subsection{Overall, by Language and by Route}
 \humantext{On the latest Colab T4 run, DjezzyBot passes all \numTestsTotal{} of its acceptance scenarios. The budget scenario passes too, but it stays the weakest route, for a data-quality reason we discuss below. Tables~\ref{tab:pass_lang} and~\ref{tab:pass_route} give the breakdown by language and by route.}
 
-\humantext{We are deliberate about what this number is and is not. These \numTestsTotal{} scenarios are a \emph{behavioral acceptance suite}, not a statistical precision estimate: each asserts an exact, predetermined behavior, and because decoding is greedy every run is reproducible. So ``\numTestsPass{}/\numTestsTotal{}'' means ``the system does the specified right thing on each of these cases'', not ``it is correct 100\,\% of the time in the wild''. A stronger, metric-based evaluation --- a larger labelled query set, an external baseline (pure dense retrieval with no router), and separate retrieval and generation metrics (recall@k, faithfulness) --- complements this acceptance suite and is reported in Section~\ref{sec:metrics} below; a second independent annotator for inter-rater agreement is the one piece we still leave to future work.}
+\humantext{It is important to be precise about what this figure represents. These \numTestsTotal{} scenarios constitute a \emph{behavioral acceptance suite}, not a statistical precision estimate: each asserts an exact, predetermined behavior, and because decoding is greedy, every run is reproducible. Accordingly, ``\numTestsPass{}/\numTestsTotal{}'' means that the system performs the specified correct behavior on each of these cases, not that it is correct 100\,\% of the time in deployment. A stronger, metric-based evaluation --- a larger labelled query set, an external baseline (pure dense retrieval with no router), and separate retrieval and generation metrics (recall@k, faithfulness) --- complements this acceptance suite and is reported in Section~\ref{sec:metrics} below; a second independent annotator for inter-rater agreement is the one piece we still leave to future work.}
 
 \begin{table}[H]
 \centering
@@ -1824,7 +1809,7 @@ Generation  & \latTxtGenAvg  & \latTxtGenWorst \\
 \end{tabularx}
 \end{table}
 
-\humantext{The average hides the shape of the data. Most replies land around 40~s; the 53~s average is pulled up by one long comparison answer (1904 characters, 144~s). Retrieval never costs more than two seconds --- generation is the whole bill, and it grows with the length of the answer, because the free T4 decodes the 4-bit model at roughly 10--15 tokens per second. We state the consequence plainly: at this decode rate the text path \emph{does not} meet the under-10~s target of NFR-02 on the free T4 --- the average answer takes about 53~s. That is a hardware ceiling, not a flaw in the design: the same pipeline on our early Groq prototype answered in about one second, so NFR-02 is met as soon as the model runs on a production-grade accelerator (the private-infrastructure direction of the conclusion); answer streaming and a shorter-answer style would also narrow the gap. We discuss this trade-off again in the API-vs-local comparison.}
+\humantext{The average does not reflect the full shape of the data. Most replies fall around 40~s; the 53~s average is raised by one long comparison answer (1904 characters, 144~s). Retrieval never exceeds two seconds --- generation accounts for almost the entire cost, and it grows with the length of the answer, since the free T4 decodes the 4-bit model at roughly 10--15 tokens per second. The consequence must be stated plainly: at this decode rate the text path \emph{does not} meet the under-10~s target of NFR-02 on the free T4, as the average answer takes about 53~s. This is a hardware ceiling rather than a design flaw: the same pipeline on the early Groq prototype answered in about one second, so NFR-02 is satisfied as soon as the model runs on a production-grade accelerator (the private-infrastructure direction discussed in the conclusion); answer streaming and a more concise answer style would also narrow the gap. This trade-off is discussed further in the API-vs-local comparison.}
 
 \begin{table}[H]
 \centering
@@ -1843,10 +1828,10 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 \end{tabularx}
 \end{table}
 
-\humantext{Note: the first voice reply includes the one-time on-demand load of XTTS-v2, so its worst-case TTS figure is higher than the steady-state average. We leave that in rather than discarding it, so the worst case stays honest.}
+\humantext{It should be noted that the first voice reply includes the one-time on-demand load of XTTS-v2, so its worst-case TTS figure is higher than the steady-state average. This value is retained rather than discarded, so that the worst case remains representative.}
 
 \subsection{The Weakest Route: Budget}
-\humantext{The budget route is the weakest part of the system, and the reason is the data, not the routing. Djezzy crams subscription prices and per-unit tariffs onto the same page (``5~DA/SMS'', ``4.99~DA/Mo''), so when a user asks for offers under a budget, a naive price filter can mistake a per-unit tariff for an offer price and let it through. We close most of that gap by skipping any amount glued to a unit (\texttt{/SMS}, \texttt{/Mo}, and so on) and any crédit or bonus figure; with that fix the budget scenario now passes. Most of the noise, not all of it --- a page with an unusual layout could still slip a tariff line past the filter, which is why we still call this route the soft spot of the system and would rather say so plainly than bury it.}
+\humantext{The budget route is the weakest component of the system, and the cause lies in the data rather than in the routing. Djezzy places subscription prices and per-unit tariffs on the same page (``5~DA/SMS'', ``4.99~DA/Mo''), so when a user asks for offers under a budget, a naive price filter may mistake a per-unit tariff for an offer price and admit it. Most of this gap is closed by excluding any amount attached to a unit (\texttt{/SMS}, \texttt{/Mo}, and so on) and any crédit or bonus figure; with this fix the budget scenario now passes. This addresses most of the noise but not all of it: a page with an unusual layout could still allow a tariff line to pass the filter, which is why this route remains the system's principal weakness, stated here explicitly rather than omitted.}
 
 \section{Demonstration}
 \humantext{This section shows the running system in use. The implemented single-screen interface itself is shown in Chapter~4 (Figure~\ref{fig:ui_screenshot}); the captures below exercise one behavior each, across the four languages and the routes validated above.}
@@ -1964,7 +1949,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 \chapter*{General Conclusion and Future Work}
 \addcontentsline{toc}{chapter}{General Conclusion and Future Work}
 
-\humantext{This thesis set out to design and build \textbf{DjezzyBot}, a multilingual virtual assistant --- French, Modern Standard Arabic, English, and Algerian Darija --- for the operator Djezzy. Two problems started it: call centers drowning in repetitive questions, and no NLP tool that actually fits the way Algerians mix their languages. What we built in answer is a complete prototype on the RAG (\textit{Retrieval-Augmented Generation}) architecture and open-source LLMs, running end to end on one free Google Colab T4 GPU.}
+\humantext{This thesis set out to design and build \textbf{DjezzyBot}, a multilingual virtual assistant --- French, Modern Standard Arabic, English, and Algerian Darija --- for the operator Djezzy. Two problems motivated it: call centers overwhelmed by repetitive questions, and the absence of an NLP tool suited to the way Algerians mix their languages. The result is a complete prototype based on the RAG (\textit{Retrieval-Augmented Generation}) architecture and open-source LLMs, running end to end on a single free Google Colab T4 GPU.}
 
 \humantext{Our key contributions are:}
 \begin{itemize}
@@ -1974,7 +1959,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
     \item \humantext{A \textbf{fully local, open-source voice-and-text stack} (Qwen2.5-7B 4-bit, multilingual-e5, Whisper-medium, Coqui XTTS-v2 on demand) that fits a 15~GB T4 and keeps all subscriber data on-premises.}
 \end{itemize}
 
-\humantext{Across its \numTestsTotal{} acceptance scenarios in four languages, DjezzyBot passes every one --- a functional acceptance check of its behavior, not an accuracy figure (the metric-based evaluation is set out in future work). The budget route passes as well, though it remains the system's weakest point, because Djezzy's pages mix subscription prices with per-unit tariffs.}
+\humantext{Across its \numTestsTotal{} acceptance scenarios in four languages, DjezzyBot passes every one --- a functional acceptance check of its behavior rather than an accuracy figure (the metric-based evaluation is set out in future work). The budget route passes as well, though it remains the system's weakest point, because Djezzy's pages mix subscription prices with per-unit tariffs.}
 
 \humantext{This work opens several directions for future research and development:}
 \begin{itemize}
@@ -2048,6 +2033,15 @@ Radford, A., Kim, J.W., Xu, T., et al. (2023). \textit{Robust Speech Recognition
 
 \bibitem{gao2023ragsurvey}
 Gao, Y., Xiong, Y., Gao, X., et al. (2023). \textit{Retrieval-Augmented Generation for Large Language Models: A Survey}. arXiv preprint arXiv:2312.10997.
+
+\bibitem{karpukhin2020dpr}
+Karpukhin, V., Oğuz, B., Min, S., et al. (2020). \textit{Dense Passage Retrieval for Open-Domain Question Answering}. Proceedings of EMNLP, 6769--6781.
+
+\bibitem{guu2020realm}
+Guu, K., Lee, K., Tung, Z., Pasupat, P., Chang, M.-W. (2020). \textit{REALM: Retrieval-Augmented Language Model Pre-Training}. Proceedings of the 37th International Conference on Machine Learning (ICML).
+
+\bibitem{izacard2021fid}
+Izacard, G., Grave, E. (2021). \textit{Leveraging Passage Retrieval with Generative Models for Open Domain Question Answering}. Proceedings of EACL, 874--880.
 
 \bibitem{wang2022e5}
 Wang, L., Yang, N., Huang, X., et al. (2022). \textit{Text Embeddings by Weakly-Supervised Contrastive Pre-training}. arXiv preprint arXiv:2212.03533.
