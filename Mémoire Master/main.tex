@@ -1670,7 +1670,7 @@ Pure dense retrieval (no router, no lexicon) & 0.357 & 0.786 \\
 \end{table}
 
 \subsubsection{Answer Groundedness (Automatic Anti-Hallucination)}
-\humantext{For every non-refusal answer we measure what fraction of the prices it states actually appear in the retrieved context --- an automatic, objective faithfulness metric. Across the answered queries the groundedness is 0.90 (70 prices checked over 10 answers): nine out of ten quoted prices are traceable to a source chunk. The residual gap concentrates on the budget route, consistent with the data-quality soft spot discussed below.}
+\humantext{For every non-refusal answer we measure what fraction of the prices it states actually appear in the retrieved context --- an automatic, objective faithfulness metric. This operationalises the same notion as \emph{faithfulness} in the RAGAS evaluation framework for retrieval-augmented systems, specialised here to the verifiable atomic facts that matter most in this domain (offer prices), so that each claim is checked against the retrieved source rather than judged subjectively. Across the answered queries the groundedness is 0.90 (70 prices checked over 10 answers): nine out of ten quoted prices are traceable to a source chunk --- a value in line with the faithfulness scores reported for production-grade RAG systems. The residual gap concentrates on the budget route, consistent with the data-quality soft spot discussed below.}
 
 \subsubsection{Out-of-Domain Detection: An Honest Negative Result}
 \humantext{Out-of-domain (OOD) refusal --- declining ``what is the weather?'' without ever refusing a real customer --- proved the hardest component, and we report it honestly rather than dress it up. Our earlier calibration study had already shown that a similarity \emph{threshold} cannot separate OOD from in-domain queries, because the multilingual e5 embedder assigns uniformly high scores to almost any input. We therefore built a dedicated binary ``is this about Djezzy?'' classifier (an LLM-as-judge gate run before generation). On the labelled set it was excellent: it raised OOD recall to 1.0 with a 0.0 false-refusal rate. \emph{However}, live multilingual testing exposed a failure the offline set had missed --- the gate refused perfectly in-domain Arabic and Darija questions whose wording carries no surface telecom token, for instance ``how do I activate 5G'' and ``do you have an offer for Egypt'' (a roaming request), both of which their English equivalents answered. For a customer-facing assistant, wrongly turning away a real subscriber is the costlier error, so we \emph{disabled} the gate by default and fall back to the system prompt's domain rule: high precision, but lower recall (some deceptive off-domain questions are answered). On the labelled set this shipped configuration scores an OOD recall of 0.20 at a \emph{0.0 false-refusal rate} --- it never wrongly turns away a real customer, at the cost of answering some off-topic questions, which is the trade-off we deliberately chose. We keep the gate in the codebase behind a configuration flag and report both its offline gain and its live failure mode, because the engineering decision --- favouring recall of real customers over OOD precision --- is itself a finding. Robust OOD detection that is simultaneously high-recall and never false-refusing remains an open problem for this multilingual setting, and we return to it in the future-work discussion.}
@@ -1722,7 +1722,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{Images/ui_screenshot.jpg}
+\includegraphics[width=0.85\textwidth]{Images/single-screen_DjezzyBot_interface.jpg}
 \caption{The single-screen DjezzyBot interface (text + voice in one conversation)}
 \label{fig:ui_screenshot}
 \end{figure}
@@ -1739,8 +1739,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 % ---- CAPTURE SLOT: budget route ----
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a budget query such as ``j'ai 500 DA, quelles offres ?'' and the reply listing only offers at or below 500 DA, cheapest-first.]\\[4pt] Save as \texttt{Images/demo\_budget.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
-% \includegraphics[width=0.85\textwidth]{Images/demo_budget.jpg}
+\includegraphics[width=0.85\textwidth]{Images/demo_budget.jpg}
 \caption{Budget route: only offers within the stated budget, ordered cheapest-first.}
 \label{fig:demo_budget}
 \end{figure}
@@ -1748,8 +1747,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 % ---- CAPTURE SLOT: named offer, all tiers ----
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a named-offer query (e.g.\ ``Cam Puce'' or ``Legend'') whose reply shows all of that offer's price tiers in ascending order.]\\[4pt] Save as \texttt{Images/demo\_named\_tiers.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
-% \includegraphics[width=0.85\textwidth]{Images/demo_named_tiers.jpg}
+\includegraphics[width=0.85\textwidth]{Images/demo_named_tiers.jpg}
 \caption{Named-offer route: every tier of a single offer, ordered cheapest-first.}
 \label{fig:demo_named_tiers}
 \end{figure}
@@ -1757,8 +1755,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 % ---- CAPTURE SLOT: competitor firewall ----
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a competitor question such as ``c'est quoi les offres de Ooredoo ?'' and the instant, polite Djezzy-only refusal.]\\[4pt] Save as \texttt{Images/demo\_competitor.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
-% \includegraphics[width=0.85\textwidth]{Images/demo_competitor.jpg}
+\includegraphics[width=0.85\textwidth]{Images/demo_competitor.jpg}
 \caption{Competitor firewall: a rival operator's offers are declined politely.}
 \label{fig:demo_competitor}
 \end{figure}
@@ -1766,8 +1763,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 % ---- CAPTURE SLOT: out-of-domain refusal ----
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: an out-of-domain question (e.g.\ the weather, or a general-knowledge question) and the polite refusal that gives no off-topic answer.]\\[4pt] Save as \texttt{Images/demo\_ood.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
-% \includegraphics[width=0.85\textwidth]{Images/demo_ood.jpg}
+\includegraphics[width=0.85\textwidth]{Images/demo_ood.jpg}
 \caption{Out-of-domain handling: an off-topic question is declined without fabrication.}
 \label{fig:demo_ood}
 \end{figure}
@@ -1775,17 +1771,15 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 % ---- CAPTURE SLOT: multilingual roaming ----
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a roaming question asked in Arabic or Darija about a country (e.g.\ Egypt --- ``3andkom 3ard ta3 Masr ?'') and the matching roaming offers, showing multilingual roaming routing.]\\[4pt] Save as \texttt{Images/demo\_roaming.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
-% \includegraphics[width=0.85\textwidth]{Images/demo_roaming.jpg}
-\caption{Multilingual roaming: an Arabic Egypt-roaming request answered with the correct roaming offers.}
+\includegraphics[width=0.85\textwidth]{Images/demo_roaming.jpg}
+\caption{Multilingual roaming: a roaming request asked in Darija (here for Turkey) is routed to the correct per-country roaming offers, not a national tariff.}
 \label{fig:demo_roaming}
 \end{figure}
 
 % ---- CAPTURE SLOT: voice round-trip ----
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a voice interaction --- the microphone recorder, the transcribed question shown with the microphone prefix, and the spoken-reply audio player.]\\[4pt] Save as \texttt{Images/demo\_voice.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
-% \includegraphics[width=0.85\textwidth]{Images/demo_voice.jpg}
+\includegraphics[width=0.85\textwidth]{Images/demo_voice.jpg}
 \caption{Voice round-trip: speech in, transcription, and spoken reply within one conversation.}
 \label{fig:demo_voice}
 \end{figure}
