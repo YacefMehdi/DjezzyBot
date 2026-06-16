@@ -203,7 +203,7 @@ Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un
 الأسئلة المتعلّقة بالعروض والأسعار اعتماداً \emph{فقط} على نصوص مستخرَجة من مواقع جيزي الرسمية، عبر معمارية
 \LR{RAG} قائمة بالكامل على نماذج مفتوحة المصدر ومجّانية تعمل على وحدة معالجة رسومية واحدة \LR{(Google Colab T4, 15 GB)}.
 يعتمد الاسترجاع على موجِّه نوايا قائم على قواعد (\numRoutes{} مسارات) موضوع أمام فهرس كثيف \LR{FAISS}
-(تضمينات \LR{multilingual-e5}، بحث جيب التمام الدقيق)؛ ويتكفّل بالتوليد نموذج \LR{Qwen2.5-7B-Instruct} المُكمَّم إلى 4-بت.
+(تضمينات \LR{multilingual-e5}، بحث جيب التمام الدقيق)؛ ويتكفّل بالتوليد نموذج \LR{\mbox{Qwen2.5-7B-Instruct}} المُكمَّم إلى 4-بت.
 يدعم النظام أيضاً الصوت (\LR{Whisper} للتعرّف و\LR{Coqui XTTS-v2} للتركيب). تُعالَج الأسئلة خارج النطاق عبر طبقتين
 --- عتبة تشابه منخفضة وقاعدة النطاق الخاصة بالنموذج ---، وهو خيار نبرّره بتجربة معايرة على نحو 95 استفساراً.
 على \numTestsTotal{} سيناريو قبول سلوكي تغطّي اللغات الأربع، ينجح النظام فيها جميعاً --- وهو تحقّق وظيفي من سلوكه وليس مقياس دقّة إحصائياً، مع تحديد تقييم كمّي (الدقّة، الاستدعاء، الاستدعاء@k للاسترجاع مقابل خطّ أساس) كخطوة تالية.
@@ -1214,9 +1214,9 @@ Zid         & 5  & Roaming  & 38 \\
 \section{Multilingual Handling Without Translation}
 
 \subsection{No Translation Layer}
-\humantext{An early design translated every non-French question into French, queried the base, and translated the answer back. We dropped this entirely. Translation added latency, and the Opus-MT models we tried corrupted brand names and prices --- ``\textit{عروض جيزي ليجند}'' (Djezzy Legend offers) once came back as ``offres de Jezzie pour le recrutement'', with the model reading ``\textit{ليجند}'' (Legend) as the Arabic word for ``recruitment''. Working around this with placeholder tokens was fragile and never fully reliable.}
+\humantext{An early design translated every non-French question into French, queried the base, and translated the answer back. We dropped this entirely. Translation added latency, and the Opus-MT models we tried corrupted brand names and prices --- ``\textarabic{عروض جيزي ليجند}'' (Djezzy Legend offers) once came back as ``offres de Jezzie pour le recrutement'', with the model reading ``\textarabic{ليجند}'' (Legend) as the Arabic word for ``recruitment''. Working around this with placeholder tokens was fragile and never fully reliable.}
 
-\humantext{The multilingual embedding model removes the need for all of this. Because \texttt{multilingual-e5} places French, Arabic, English, and Darija in the same vector space, a question is embedded \emph{directly} in its own language and still matches the right (often Arabic or French) page. For the answer, we rely on Qwen2.5's native multilingual ability: a short directive placed in the \emph{user} turn (``Reply entirely in English'', ``\textit{أجب بالكامل باللغة العربية الفصحى}'') tells the model which language to answer in, with no separate translation step and nothing to corrupt the prices.}
+\humantext{The multilingual embedding model removes the need for all of this. Because \texttt{multilingual-e5} places French, Arabic, English, and Darija in the same vector space, a question is embedded \emph{directly} in its own language and still matches the right (often Arabic or French) page. For the answer, we rely on Qwen2.5's native multilingual ability: a short directive placed in the \emph{user} turn (``Reply entirely in English'', ``\textarabic{أجب بالكامل باللغة العربية الفصحى}'') tells the model which language to answer in, with no separate translation step and nothing to corrupt the prices.}
 
 \subsection{Language Detection}
 \humantext{Detection runs in three priority layers, because \texttt{langdetect} systematically mistakes Darija for French (they share French loanwords):}
