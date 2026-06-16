@@ -124,7 +124,7 @@
 
     \begin{flushleft}
     \textbf{Presented and defended by:}\\
-    Messaoudi Hemza Abderroauf\\
+    Messaoudi Hemza Abderraouf\\
     Yacef Mehdi\\[1cm]
 
     \textbf{Supervisor:}\\
@@ -228,12 +228,12 @@ Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un
 
 % --- LIST OF ABBREVIATIONS ---
 \clearpage
-\addcontentsline{toc}{chapter}{List of Abbreviations}
-\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Acronyms}
+\chapter*{List of Acronyms}
 
 \begin{tabularx}{\textwidth}{l X}
 \toprule
-\textbf{Abbreviation} & \textbf{Meaning} \\
+\textbf{Acronym} & \textbf{Meaning} \\
 \midrule
 API    & Application Programming Interface \\
 ARPCE  & Autorité de Régulation de la Poste et des Communications Électroniques \\
@@ -274,14 +274,13 @@ XTTS   & Cross-lingual Text-to-Speech \\
 \chapter*{General Introduction}
 \addcontentsline{toc}{chapter}{General Introduction}
 
-\section*{Context of the Study}
+\section*{General Background}
 \humantext{Algeria's telecom market moves fast now. A decade ago mobile data was a luxury. Today it is everywhere, and the operators compete by piling on offers: more plans, more bundles, a new promotion almost every season.} \sourced{According to the Regulatory Authority for Post and Electronic Communications (ARPCE), the number of mobile subscribers in Algeria reached about 54~million in the fourth quarter of 2024 \cite{arpce2024}, a penetration rate of roughly 117\,\% for a population of 46.7~million on 1~January 2024 (projected at 47.4~million in 2025) \cite{ons2025}.} \sourced{Three operators share this market: Mobilis (a subsidiary of Algérie Télécom), Ooredoo (Qatari group), and Djezzy (part of the VEON group), the last of which counts more than 14~million active subscribers.}
 
 \sourced{Operators like Djezzy keep launching new plans: prepaid (Legend, iZZY), postpaid (Legend Max), student offers (Student Campuce), value-added services such as E-Flexy and DjezzyNet, and international roaming, all to keep an increasingly connected and demanding customer base happy.} \humantext{Three operators, one pool of subscribers. In a fight that tight, the small frictions decide who stays. Can the customer find the right answer quickly? Or do they give up halfway down a menu? Those little moments add up, and they add up to churn.}
 
 \humantext{Something else shifted in parallel. Large Language Models (LLMs) made software fluent. GPT-4, Llama 3, Qwen: these models read what a user actually means, follow instructions, and reply in language that reads like a person wrote it.} \sourced{To address the factual weaknesses of these models, the RAG paradigm (\textit{Retrieval-Augmented Generation}) introduced by Lewis et al. \cite{lewis2020rag} pairs the parametric memory of a pre-trained generator with an external, non-parametric memory.} \sourced{This grounds a model's answers in a factual knowledge base, which opens the door to virtual assistants that give precise, contextual, and verifiable answers.}
 
-\section*{Problem Statement}
 \humantext{The information is all there. Djezzy's website and app hold it. The trouble is finding it.} \humantext{Say you want the price of a roaming option, or the exact steps to activate a SIM. You will be clicking through a menu, then a sub-menu, then a FAQ that only half answers the question. It is scattered across pages, and it wears you down.}
 
 \humantext{So people call instead. Many of them. The lines fill up, the wait drags on, and patience runs out long before an agent picks up.} \sourced{Industry studies report that more than 60\,\% of calls to telecom support centers are basic information questions (prices, plans, activation) that could be automated \cite{gartner2023}.}
@@ -293,15 +292,8 @@ XTTS   & Cross-lingual Text-to-Speech \\
     \item \humantext{\textbf{Vendor lock-in:} Relying on paid APIs such as OpenAI raises heavy concerns about cost, technical independence, and leaking private data.}
 \end{itemize}
 
-\section*{Proposed Solution: DjezzyBot}
-\humantext{That is the gap this project sets out to fill. \textbf{DjezzyBot}, built for the ISII master's, is our answer to it.} \humantext{Think of it as a companion that never sleeps. You type to it, or you talk to it. Either way, it answers.}
-
-\humantext{We made one firm choice up front: \textit{open-source} only, no paid APIs.} \humantext{Under the hood that means a Large Language Model (Qwen2.5, from Alibaba Cloud) wired to a RAG (\textit{Retrieval-Augmented Generation}) pipeline.} \humantext{The order is the whole point. The bot looks up the real facts in a FAISS database first, and only then writes. It cannot invent a price it never read, and the data never leaves our own machine.}
-
-\humantext{Languages we handle the simple way: no translation step at all. A multilingual embedding model reads French, Arabic, English, and Darija \emph{directly}, and Qwen2.5 replies in whatever language the user wrote in. One more piece sits in front of the search. A rule-based router reads the question first and catches brand names like ``Campuce'' or ``iZZY'' by exact text match. That last detail matters more than it sounds, because an embedding model has never seen an invented commercial name and will not find it on its own.}
-
-\section*{Project Objectives}
-\humantext{The overall goal of this thesis is to build an end-to-end solution. It breaks down into several technical sub-objectives:}
+\section*{Objectives and Motivation}
+\humantext{The motivation is concrete: take the load of repetitive factual questions off Djezzy's call centers with an assistant that fits Algeria's language mix and runs at zero cost. The overall goal of this thesis is to build that end-to-end solution. It breaks down into several technical sub-objectives:}
 \begin{itemize}
     \item \humantext{\textbf{Building the knowledge base:} automated extraction (\textit{web scraping} with Playwright and BeautifulSoup) of data from Djezzy's official sites, aggressive HTML cleaning, and storing the information as JSON.}
     \item \humantext{\textbf{Implementing the RAG pipeline:} embedding the text with a multilingual model (\texttt{multilingual-e5}) orchestrated by LangChain, stored in a FAISS vector index with per-page chunking.}
@@ -311,7 +303,14 @@ XTTS   & Cross-lingual Text-to-Speech \\
     \item \humantext{\textbf{Building the user interface:} an interactive web interface (with Gradio) where text and voice share a single conversation.}
 \end{itemize}
 
-\section*{Structure of the Thesis}
+\section*{Contributions}
+\humantext{That is the gap this project sets out to fill. \textbf{DjezzyBot}, built for the ISII master's, is our answer to it.} \humantext{Think of it as a companion that never sleeps. You type to it, or you talk to it. Either way, it answers.}
+
+\humantext{We made one firm choice up front: \textit{open-source} only, no paid APIs.} \humantext{Under the hood that means a Large Language Model (Qwen2.5, from Alibaba Cloud) wired to a RAG (\textit{Retrieval-Augmented Generation}) pipeline.} \humantext{The order is the whole point. The bot looks up the real facts in a FAISS database first, and only then writes. This grounding sharply \emph{reduces} the risk of an invented price --- it does not pretend to eliminate it (Chapter~5 measures the residual gap) --- and the data never leaves our own machine.}
+
+\humantext{Languages we handle the simple way: no translation step at all. A multilingual embedding model reads French, Arabic, English, and Darija \emph{directly}, and Qwen2.5 replies in whatever language the user wrote in. One more piece sits in front of the search. A rule-based router reads the question first and catches brand names like ``Campuce'' or ``iZZY'' by exact text match. That last detail matters more than it sounds, because an embedding model has never seen an invented commercial name and will not find it on its own.}
+
+\section*{Research Outline}
 \humantext{To follow the whole approach, the thesis is organized into five main parts:}
 \begin{itemize}
     \item \humantext{\textbf{Chapter 1} introduces Djezzy, its role on the national market, and the analysis that led us to start this project.}
@@ -2081,6 +2080,49 @@ Abainia, K. (2019). \textit{DZDC12: a New Multipurpose Parallel Algerian Arabizi
 Fourati, C., Messaoudi, A., Haddad, H. (2020). \textit{TUNIZI: a Tunisian Arabizi Sentiment Analysis Dataset}. arXiv preprint arXiv:2004.14303.
 
 \end{thebibliography}
+
+% ================================================================
+% APPENDICES
+% ================================================================
+\appendix
+
+\chapter{The System Prompt}
+\label{app:prompt}
+\humantext{The system prompt is the contract that pins \textbf{Qwen2.5-7B-Instruct} to the retrieved context and fixes its behaviour. It is reproduced below as it is sent to the model --- the \numRules{} rules introduced in Chapter~3 --- so the reader can audit exactly what governs every answer. The retrieved context and the user's question are appended after these rules, in the \texttt{user} turn (Chapter~3).}
+
+\begin{quote}
+\small
+\textit{You are DjezzyBot, the virtual assistant of the Algerian operator Djezzy. Follow these rules strictly:}
+\begin{enumerate}[noitemsep]
+    \item \humantext{\textbf{Djezzy domain only.} Answer only questions about Djezzy (offers, prices, services, recharge, roaming, network); politely decline anything else in one sentence, even if you know the answer.}
+    \item \humantext{\textbf{Context only.} Never invent a price, offer, volume, validity, or USSD code; if the information is not in the context, say so honestly.}
+    \item \humantext{\textbf{Exact price, level of detail.} Each cited offer carries its exact price; follow the presentation directive (brief or full) supplied with the question, and when full detail is asked, omit nothing present in the context.}
+    \item \humantext{\textbf{Budget.} If a budget is given, show only offers at or below it; the context is already filtered, so list everything in it.}
+    \item \humantext{\textbf{National $\neq$ roaming.} Never confuse a national tariff with a roaming (abroad) tariff.}
+    \item \humantext{\textbf{No competitor (with one exception).} Never describe or recommend another operator's offers, but a Djezzy offer may mention calls/SMS \emph{toward} other networks.}
+    \item \humantext{\textbf{Customer's language.} Always answer in the language of the question.}
+    \item \humantext{\textbf{Darija $\rightarrow$ MSA.} If the question is in Algerian Darija, answer in clear Modern Standard Arabic.}
+    \item \humantext{\textbf{Latin names.} Keep offer and destination names in their original Latin script (Legend, iZZY, Campuce\ldots), even in an Arabic answer.}
+    \item \humantext{\textbf{No repetition.} Do not repeat the same offer or sentence twice.}
+    \item \humantext{\textbf{Concise.} Answer clearly, in a structured and concise way.}
+\end{enumerate}
+\end{quote}
+
+\humantext{Generation runs with greedy decoding (\texttt{do\_sample=False}), so for a fixed context these rules produce a reproducible answer --- the property the acceptance suite of Chapter~5 relies on.}
+
+\chapter{Example Dialogues}
+\label{app:dialogues}
+\humantext{This appendix reproduces complete exchanges with the deployed system --- successful cases across the four languages and the one route we still call a soft spot --- so the behaviour described in Chapter~5 can be inspected end to end. The captures referenced here are the figures of Section~5.4.}
+
+\humantext{\textbf{Catalogue, four languages (success).} The same question, ``what are your offers?'', asked in French, Arabic, English and Algerian Darija, returns one priced line per offer family, cheapest-first, each answer in the user's own language (the Darija input answered in Modern Standard Arabic, offer names kept in Latin script). See Figure~\ref{fig:example_convos}.}
+
+\humantext{\textbf{Named offer, all tiers (success).} A Darija request for a single offer (e.g.\ ``\textarabic{شحال تاع}~Legend~?'') returns that offer's whole page with every subscription tier ordered cheapest-first --- the Cam~Puce fix of Chapter~3 --- rather than the SIM-purchase or activation tail. See Figure~\ref{fig:demo_named_tiers}.}
+
+\humantext{\textbf{Multilingual roaming (success).} A roaming request asked in Darija (here for Turkey) is routed to the correct per-country roaming offer, never a national tariff (rule~5). See Figure~\ref{fig:demo_roaming}.}
+
+\humantext{\textbf{Competitor and out-of-domain (success).} ``\textit{offre Ooredoo~?}'' triggers the instant, LLM-free ``Djezzy only'' refusal (Figure~\ref{fig:demo_competitor}); ``\textit{la météo~?}'' is declined politely with no fabricated weather (Figure~\ref{fig:demo_ood}).}
+
+\humantext{\textbf{Budget (limitation).} ``\textit{j'ai 1000~DA}'' lists only offers at or below 1{,}000~DA, ordered cheapest-first (Figure~\ref{fig:demo_budget}). This is the route we report honestly as the weakest: because Djezzy pages mix subscription prices with per-unit tariffs (``5~DA/SMS'', ``4,99~DA/Mo''), an unusually laid-out page can still slip a tariff line past the price filter, as discussed in Section~5.3 and revisited in the future-work directions.}
 
 % --- FIN DU DOCUMENT ---
 
