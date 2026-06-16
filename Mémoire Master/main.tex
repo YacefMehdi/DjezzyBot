@@ -149,7 +149,7 @@
 
 We wish to express our sincere gratitude to our supervisor, \textbf{Mme Amrouni Kahina}, for her trust, for many helpful discussions, and for giving us access to the resources this project needed.
 
-Our thanks also go to our co-supervisor, \textbf{Dr. Benelmir Rima}, for her availability, her guidance on the literature, and her always constructive feedback.
+Our thanks also go to our co-supervisor, \textbf{Mme Benelmir Rima}, for her availability, her guidance on the literature, and her always constructive feedback.
 
 We thank all the teaching staff of the \textbf{Department of Computer Science} at the University of Algiers 1, whose rigorous teaching formed the foundation of this work.
 
@@ -1423,6 +1423,31 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 \end{lstlisting}
 
+\subsection{Observed GPU Memory Footprint}
+\humantext{The 15~GB ceiling of NFR-03 is the constraint that shaped every model choice, so we measured the real footprint rather than trusting back-of-the-envelope sizes. The peak is read directly from the driver --- \texttt{torch.cuda.max\_memory\_allocated()} after a voice request, cross-checked against \texttt{nvidia-smi} --- and Table~\ref{tab:vram} breaks it down per component. Two facts drive the budget: the 4-bit Qwen weights dominate at about 5~GB (down from $\sim$14~GB in FP16, the whole reason quantization is non-negotiable here), and XTTS-v2 is loaded \emph{on demand}, so it costs nothing while the user only types and lifts the peak only during a voice answer. The resident footprint stays near \vramResident~GB and the peak near \vramPeak~GB --- a deliberate $\sim$5~GB of headroom under the T4's 15~GB, which absorbs the activation spikes of a long generation without an out-of-memory crash.}
+
+\begin{table}[H]
+\centering
+\caption{Observed GPU memory footprint on the Colab T4 (15~GB)}
+\label{tab:vram}
+\begin{tabularx}{\textwidth}{X c l}
+\toprule
+\textbf{Component} & \textbf{VRAM} & \textbf{When loaded} \\
+\midrule
+Qwen2.5-7B-Instruct (NF4, 4-bit)      & $\sim$5.0~GB & resident \\
+Whisper-medium (faster-whisper, fp16) & $\sim$1.5~GB & resident \\
+multilingual-e5-base (embeddings)     & $\sim$0.5~GB & resident \\
+CUDA context + PyTorch buffers        & $\sim$1.0~GB & resident \\
+\midrule
+\textbf{Resident subtotal (text path)} & \textbf{$\sim$\vramResident~GB} & always \\
+\midrule
+Coqui XTTS-v2 (synthesis)             & $\sim$2.0~GB & on demand (voice only) \\
+\midrule
+\textbf{Peak (voice path)}            & \textbf{$\sim$\vramPeak~GB} & during a spoken reply \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \subsection{The Intent Router (classify\_route)}
 \humantext{The router is the single source of truth for the user's intent. A pure function, \texttt{classify\_route}, reads the question and returns one of the seven routes in strict priority order. Both retrieval and the answer style are driven by its result, so they can never drift apart --- the disconnect that once caused the ``dumps everything'' and ``random order'' bugs. Listing~\ref{lst:smart_retrieve} shows this dispatch logic.}
 
@@ -1447,6 +1472,47 @@ def classify_route(query):
 \end{lstlisting}
 
 \humantext{Each priced route then orders offers cheapest-first \emph{in Python}. The named-offer route, for instance, returns the offer's whole page and sorts its tier blocks by ascending subscription price (skipping per-unit rates and crédit/bonus amounts), so the model never has to sort --- the fix for Cam Puce's seven tiers coming back in arbitrary order.}
+
+\subsection{Deterministic Cheapest-First Ordering (the Cam Puce fix)}
+\humantext{This sort is one of the project's core contributions, so we show it rather than just describe it. The difficulty is that Djezzy renders a price first and its label on the next line, and mixes genuine subscription tiers with per-unit tariffs (``5~DA/SMS''), decimal rates (``4,99~DA''), and crédit/bonus figures on the same page. A single shared helper, \texttt{\_split\_offer\_blocks}, decides what counts as a tier boundary --- so the budget filter and the price sorter can never disagree --- and \texttt{\_sort\_offer\_text\_by\_price} reorders the blocks so the context handed to the LLM is \emph{already} cheapest-first (Listing~\ref{lst:tiersort}).}
+
+\begin{lstlisting}[language=Python, caption={Tier-block splitting and deterministic cheapest-first reordering}, label={lst:tiersort}]
+def _is_tier_price(lines, i):
+    """Return line i's subscription price, or None for non-tier amounts."""
+    m = _PRICE_RE.search(lines[i].lower())
+    if not m or _RATE_AFTER_RE.match(lines[i].lower(), m.end()):
+        return None                       # per-unit rate "5 DA/SMS", not a tier
+    if _is_decimal_fraction(lines[i].lower(), m.start()):
+        return None                       # ",99" of "4,99 DA", not 99 DA
+    if any(w in " ".join(lines[i:i + 2]).lower() for w in _CREDIT_WORDS):
+        return None                       # a credit/bonus amount, not a price
+    return int(m.group(1).replace(" ", ""))
+
+def _split_offer_blocks(text):
+    """Cut text into [price_or_None, lines] blocks at each tier-price boundary."""
+    lines = text.split("\n")
+    blocks, price, buf = [], None, []
+    for i, line in enumerate(lines):
+        p = _is_tier_price(lines, i)
+        if p is not None:                 # a new tier starts here
+            blocks.append([price, buf]); price, buf = p, [line]
+        else:
+            buf.append(line)
+    blocks.append([price, buf])
+    return blocks                         # block 0 = preamble (price None)
+
+def _sort_offer_text_by_price(text):
+    """Reorder tier blocks ascending; preamble stays on top. Deterministic."""
+    blocks = _split_offer_blocks(text)
+    if len(blocks) <= 2:                  # preamble + <=1 tier: nothing to sort
+        return text
+    preamble = "\n".join(blocks[0][1])
+    priced = sorted((p, "\n".join(b)) for p, b in blocks[1:])  # by price
+    ordered = ([preamble] if preamble.strip() else []) + [t for _, t in priced]
+    return "\n".join(t for t in ordered if t.strip())
+\end{lstlisting}
+
+\humantext{Because the ordering happens here, in deterministic Python, the answer no longer hinges on the model obeying ``list from cheapest to most expensive'' --- the single change that killed both the ``random tier order'' and the ``dumps everything on screen'' bugs at once.}
 
 \subsection{Query Expansion and the Competitor Firewall}
 \humantext{Before a question is embedded, the lexicon expands it with Djezzy vocabulary, and the competitor firewall refuses questions whose \emph{subject} is a rival operator. Listing~\ref{lst:lexical} shows both, including the call-destination exception that keeps a real Djezzy question (``calls to Mobilis'') from being wrongly refused.}
@@ -1476,10 +1542,76 @@ def _is_competitor_query(query):
     return False
 \end{lstlisting}
 
+\section{Data Cleaning and the Daily Refresh}
+\label{sec:refresh_impl}
+\humantext{The knowledge base is only as good as the text that reaches it, and the ``easy updates'' requirement (NFR-04) only holds if the refresh actually runs on its own. Both are implemented in code, so we show them here.}
+
+\subsection{HTML Cleaning (\texttt{clean\_html})}
+\humantext{An early crawl let Djezzy's mega-menu blocks leak into every page, which polluted the index and triggered hallucinations (Chapter~3). The cleaner removes noise in two passes --- whole tags, then any element whose \texttt{class}/\texttt{id} sub-tokens signal chrome --- with two safety rules learned the hard way: never decompose \texttt{<html>}/\texttt{<body>} (Bootstrap puts \texttt{modal-open} on \texttt{<body>}, and a naive match once wiped a whole page), and match \emph{sub-tokens} split on \texttt{-}/\texttt{\_} rather than raw substrings (so \texttt{mega} does not eat \texttt{omega}). Listing~\ref{lst:cleanhtml} shows it.}
+
+\begin{lstlisting}[language=Python, caption={Two-pass HTML cleaning}, label={lst:cleanhtml}]
+def clean_html(html):
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(config.STRIP_TAGS):        # <script>,<nav>,<footer>,<form>...
+        tag.decompose()
+    for el in soup.find_all(True):
+        if el.name in ("html", "body"):        # never wipe the page root
+            continue
+        try:
+            tokens = list(el.get("class") or [])
+            if el.get("id"):
+                tokens.append(el.get("id"))
+        except AttributeError:
+            continue                           # parent already detached -> gone
+        subtokens = [sub for tok in tokens
+                     for sub in tok.lower().replace("_", "-").split("-")]
+        if any(sub.startswith(h) for sub in subtokens   # menu, cookie, modal...
+               for h in config.STRIP_CLASS_HINTS):
+            el.decompose()
+    lines = [ln.strip() for ln in soup.get_text("\n").splitlines()]
+    return "\n".join(ln for ln in lines if ln)          # drop blank lines
+\end{lstlisting}
+
+\subsection{The Scheduler and Index Hot-Swap}
+\humantext{A daemon thread re-scrapes the sites and rebuilds the FAISS index every day at 03:00 (\texttt{SCHEDULE\_TIME}); the same routine backs the ``Refresh'' button. The new index is published on a module attribute and a callback lets the running app swap it in \emph{without a restart}, so prices stay current with no downtime. Error handling is explicit and conservative: a lock prevents the daily job and a button press from colliding, and if a crawl returns zero pages the old index is kept rather than letting the bot go dark. Every outcome is appended to \texttt{refresh\_log.txt}. Listing~\ref{lst:scheduler} shows the core.}
+
+\begin{lstlisting}[language=Python, caption={Daily refresh with index hot-swap and fail-safe}, label={lst:scheduler}]
+def _do_refresh():
+    global CURRENT_INDEX
+    with _lock:                                  # daily job vs button: never both
+        try:
+            pages = scraper.run_scrape()
+            if not pages:                        # bad crawl: keep serving old data
+                _log_line("refresh FAILED: 0 pages; keeping old index")
+                return {"ok": False, "n_pages": 0}
+            CURRENT_INDEX = indexer.build_index(pages)   # hot-swap the live index
+            _log_line(f"refresh OK: {len(pages)} pages reindexed")
+            return {"ok": True, "n_pages": len(pages)}
+        except Exception as e:
+            _log_line(f"refresh ERROR: {e}")     # never crash the running app
+            return {"ok": False, "n_pages": 0}
+
+def start_scheduler(on_done=None):
+    def _job():
+        result = _do_refresh()
+        if on_done:
+            on_done(result)                      # app.py publishes the new index
+    schedule.every().day.at(config.SCHEDULE_TIME).do(_job)   # 03:00 daily
+    threading.Thread(target=_scheduler_loop, daemon=True,
+                     name="djezzy-refresh").start()
+\end{lstlisting}
+
 \section{User Interface (Gradio) and the Voice Round-Trip}
 
 \subsection{Interface Structure}
-\humantext{The interface is built with Gradio, themed in Djezzy's red and white. It is deliberately a \emph{single screen}: text and voice feed one shared conversation. The layout has one chat window (the shared history), a text box, a microphone, an audio player for the spoken reply, and clear/refresh buttons with a status bar. Typing answers in text; speaking transcribes the question into the same chat and also plays the answer aloud. The language is auto-detected from the input, so there is no manual language selector.}
+\humantext{The interface is built with Gradio, themed in Djezzy's red and white. It is deliberately a \emph{single screen}: text and voice feed one shared conversation. The layout has one chat window (the shared history), a text box, a microphone, an audio player for the spoken reply, and clear/refresh buttons with a status bar (Figure~\ref{fig:ui_screenshot}). Typing answers in text; speaking transcribes the question into the same chat and also plays the answer aloud. The language is auto-detected from the input, so there is no manual language selector.}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth]{Images/single-screen_DjezzyBot_interface.jpg}
+\caption{The implemented single-screen DjezzyBot interface: text box, microphone, audio player and the shared chat history feed one conversation, with the ``Refresh'' button wired to the daily-refresh job of Section~\ref{sec:refresh_impl}.}
+\label{fig:ui_screenshot}
+\end{figure}
 
 \subsection{The Voice Round-Trip}
 \humantext{The voice path reuses the exact same ``brain'' as the text path: the microphone audio is transcribed, the transcription goes through the identical retrieval, routing, and generation, and the answer is then synthesized. Because both paths call the same \texttt{generate\_answer}, voice and text can never drift apart. Each stage is timed separately for the latency measurements in Chapter~5. Listing~\ref{lst:voice} shows the round-trip.}
@@ -1693,7 +1825,7 @@ Generation  & \latTxtGenAvg  & \latTxtGenWorst \\
 \end{tabularx}
 \end{table}
 
-\humantext{The average hides the shape of the data. Most replies land around 40~s; the 53~s average is pulled up by one long comparison answer (1904 characters, 144~s). Retrieval never costs more than two seconds --- generation is the whole bill, and it grows with the length of the answer, because the free T4 decodes the 4-bit model at roughly 10--15 tokens per second. That is a hardware ceiling, not a flaw in the design: the same pipeline on our early Groq prototype answered in about one second. We discuss this trade-off again in the API-vs-local comparison.}
+\humantext{The average hides the shape of the data. Most replies land around 40~s; the 53~s average is pulled up by one long comparison answer (1904 characters, 144~s). Retrieval never costs more than two seconds --- generation is the whole bill, and it grows with the length of the answer, because the free T4 decodes the 4-bit model at roughly 10--15 tokens per second. We state the consequence plainly: at this decode rate the text path \emph{does not} meet the under-10~s target of NFR-02 on the free T4 --- the average answer takes about 53~s. That is a hardware ceiling, not a flaw in the design: the same pipeline on our early Groq prototype answered in about one second, so NFR-02 is met as soon as the model runs on a production-grade accelerator (the private-infrastructure direction of the conclusion); answer streaming and a shorter-answer style would also narrow the gap. We discuss this trade-off again in the API-vs-local comparison.}
 
 \begin{table}[H]
 \centering
@@ -1718,14 +1850,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 \humantext{The budget route is the weakest part of the system, and the reason is the data, not the routing. Djezzy crams subscription prices and per-unit tariffs onto the same page (``5~DA/SMS'', ``4.99~DA/Mo''), so when a user asks for offers under a budget, a naive price filter can mistake a per-unit tariff for an offer price and let it through. We close most of that gap by skipping any amount glued to a unit (\texttt{/SMS}, \texttt{/Mo}, and so on) and any crédit or bonus figure; with that fix the budget scenario now passes. Most of the noise, not all of it --- a page with an unusual layout could still slip a tariff line past the filter, which is why we still call this route the soft spot of the system and would rather say so plainly than bury it.}
 
 \section{Demonstration}
-\humantext{This section shows the running system: screenshots of the deployed Gradio app in use.}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.85\textwidth]{Images/single-screen_DjezzyBot_interface.jpg}
-\caption{The single-screen DjezzyBot interface (text + voice in one conversation)}
-\label{fig:ui_screenshot}
-\end{figure}
+\humantext{This section shows the running system in use. The implemented single-screen interface itself is shown in Chapter~4 (Figure~\ref{fig:ui_screenshot}); the captures below exercise one behavior each, across the four languages and the routes validated above.}
 
 \begin{figure}[H]
 \centering
@@ -1821,7 +1946,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 \textbf{Criterion} & \textbf{Cloud API (Groq)} & \textbf{Local (Google Colab T4)} \\
 \midrule
 \textbf{LLM}            & Llama 3 (8B/70B), hosted & Qwen2.5-7B-Instruct (NF4), local \\
-\textbf{Raw speed}      & Higher (dedicated accelerators) & Lower (single T4), but enough \\
+\textbf{Raw speed}      & Higher (dedicated accelerators) & Lower (single T4): fine for an asynchronous prototype, below NFR-02 for live use \\
 \textbf{Quotas}         & Strict, frequent rate limits & None on the local GPU \\
 \textbf{Data sovereignty} & None (traffic leaves the country) & Full (runs on a private machine) \\
 \textbf{External dependency} & Total (proprietary API) & None (100\,\% open-source stack) \\
