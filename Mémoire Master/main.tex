@@ -1729,8 +1729,25 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{Images/example_conversations.jpg}
-\caption{Example conversations, one per language (FR / AR / EN / Darija)}
+\begin{minipage}{0.48\textwidth}\centering
+  \includegraphics[width=\linewidth]{Images/example_fr.jpg}\\[2pt]
+  \small (a) French
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}\centering
+  \includegraphics[width=\linewidth]{Images/example_ar.jpg}\\[2pt]
+  \small (b) Arabic
+\end{minipage}
+
+\vspace{8pt}
+\begin{minipage}{0.48\textwidth}\centering
+  \includegraphics[width=\linewidth]{Images/example_en.jpg}\\[2pt]
+  \small (c) English
+\end{minipage}\hfill
+\begin{minipage}{0.48\textwidth}\centering
+  \includegraphics[width=\linewidth]{Images/example_dz.jpg}\\[2pt]
+  \small (d) Darija (answered in MSA)
+\end{minipage}
+\caption{Example conversations: the same catalogue question (``what are your offers?'') answered in (a)~French, (b)~Arabic, (c)~English, and (d)~Algerian Darija --- the Darija input is answered in Modern Standard Arabic, with offer names kept in Latin script.}
 \label{fig:example_convos}
 \end{figure}
 
@@ -1787,8 +1804,7 @@ TTS (XTTS-v2)         & \latVoiTtsAvg & \latVoiTtsWorst \\
 % ---- CAPTURE SLOT: Darija without translation ----
 \begin{figure}[H]
 \centering
-\fbox{\parbox[c][3cm][c]{0.8\textwidth}{\centering\itshape [SCREENSHOT TO CAPTURE: a Darija question (Latin script) answered in Modern Standard Arabic, with offer names kept in Latin (Legend, iZZY).]\\[4pt] Save as \texttt{Images/demo\_darija.jpg}, uncomment the \texttt{\textbackslash includegraphics} below, then delete this box.}}
-% \includegraphics[width=0.85\textwidth]{Images/demo_darija.jpg}
+\includegraphics[width=0.85\textwidth]{Images/demo_darija.jpg}
 \caption{Darija handled without translation: a Modern Standard Arabic reply that keeps offer names in Latin script.}
 \label{fig:demo_darija}
 \end{figure}
