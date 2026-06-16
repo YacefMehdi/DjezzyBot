@@ -1383,28 +1383,18 @@ Language & Python 3.12 & Main programming language \\
 \subsection{Loading the LLM and 4-bit Quantization}
 \humantext{Loading Qwen2.5-7B in native precision (FP16) takes about 14~GB of VRAM, which would saturate the T4 once Whisper and the embedding model are added. We therefore use \textbf{NF4} (\textit{Normal Float 4}) quantization via the \texttt{bitsandbytes} library and \texttt{unsloth}'s pre-quantized weights, which compresses the model to about \textbf{5~GB} of VRAM.}
 
-\humantext{The model- and tokenizer-loading code is shown in Listing~\ref{lst:load_model}.}
-\begin{lstlisting}[language=Python, caption={Loading and 4-bit quantization of Qwen2.5}, label={lst:load_model}]
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+\humantext{The design-relevant part is the quantization configuration (Listing~\ref{lst:load_model}): the four NF4 settings are what bring the 7-billion-parameter model within the T4's memory budget.}
+\begin{lstlisting}[language=Python, caption={NF4 4-bit quantization configuration for Qwen2.5}, label={lst:load_model}]
+model_id = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"   # pre-quantized weights
 
-model_id = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
-
-# NF4 quantization configuration
+# NF4 4-bit quantization: ~14 GB (FP16) -> ~5 GB on the T4
 bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
+    load_in_4bit=True, bnb_4bit_quant_type="nf4",
     bnb_4bit_use_double_quant=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.float16
-)
+    bnb_4bit_compute_dtype=torch.float16)
 
-# Load the tokenizer and the quantized model
-tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(
-    model_id,
-    quantization_config=bnb_config,
-    device_map={"": 0}
-)
+    model_id, quantization_config=bnb_config, device_map={"": 0})
 \end{lstlisting}
 
 \subsection{Observed GPU Memory Footprint}
@@ -1435,65 +1425,37 @@ Coqui XTTS-v2 (synthesis)             & $\sim$2.0~GB & on demand (voice only) \\
 \subsection{The Intent Router (classify\_route)}
 \humantext{The router is the single source of truth for the user's intent. A pure function, \texttt{classify\_route}, reads the question and returns one of the seven routes in strict priority order. Both retrieval and the answer style are determined by its result, so the two cannot diverge --- the inconsistency that previously caused the ``dumps everything'' and ``random order'' defects. Listing~\ref{lst:smart_retrieve} shows this dispatch logic.}
 
-\begin{lstlisting}[language=Python, caption={Priority-ordered intent classification}, label={lst:smart_retrieve}]
+\begin{lstlisting}[language=Python, caption={Priority-ordered intent classification (first match wins)}, label={lst:smart_retrieve}]
 def classify_route(query):
-    # Priority: competitor > roaming > catalogue > comparison
-    #           > budget > named > normal
+    # competitor > roaming > catalogue > comparison > budget > named > normal
     if _is_competitor_query(query):
         return "competitor"
     offers = lexicon.detect_offers(query)
-    if _roaming_markers(query):               # destination / Hadj / Umrah
-        return "roaming"                      # wins over budget
+    if _roaming_markers(query):                            # wins over budget
+        return "roaming"
     if _is_catalogue_query(query, offers) and not _is_budget_query(query):
         return "catalogue"
-    if _is_comparison_query(query, offers):   # comparison cue + >= 2 offers
+    if _is_comparison_query(query, offers):
         return "comparison"
-    if _is_budget_query(query):               # amount + budget cue
+    if _is_budget_query(query):
         return "budget"
-    if offers:                                # a single offer named
-        return "named"
-    return "normal"
+    return "named" if offers else "normal"
 \end{lstlisting}
 
 \humantext{Each priced route then orders offers cheapest-first \emph{in Python}. The named-offer route, for example, returns the offer's entire page and sorts its tier blocks by ascending subscription price (excluding per-unit rates and crédit/bonus amounts), so that the model never performs the sorting --- the fix for Cam Puce's seven tiers being returned in arbitrary order.}
 
 \subsection{Deterministic Cheapest-First Ordering (the Cam Puce fix)}
-\humantext{This sorting is one of the project's core contributions and is therefore presented in full rather than merely described. The difficulty is that Djezzy renders a price first and its label on the next line, and mixes genuine subscription tiers with per-unit tariffs (``5~DA/SMS''), decimal rates (``4,99~DA''), and crédit/bonus figures on the same page. A single shared helper, \texttt{\_split\_offer\_blocks}, determines what constitutes a tier boundary --- so that the budget filter and the price sorter can never disagree --- and \texttt{\_sort\_offer\_text\_by\_price} reorders the blocks so that the context handed to the LLM is \emph{already} cheapest-first (Listing~\ref{lst:tiersort}).}
+\humantext{This ordering is one of the project's core design ideas. The difficulty is that Djezzy renders a price first and its label on the next line, and mixes genuine subscription tiers with per-unit tariffs (``5~DA/SMS''), decimal rates (``4,99~DA''), and crédit/bonus figures on the same page. The design response is a two-step rule: a first helper, \texttt{\_split\_offer\_blocks}, cuts the page into tier blocks at each \emph{true} subscription-price boundary --- skipping per-unit rates, decimal fractions, and crédit/bonus amounts, and shared with the budget filter so the two can never disagree --- and a second helper, \texttt{\_sort\_offer\_text\_by\_price}, reorders those blocks so that the context handed to the LLM is \emph{already} cheapest-first. The principle matters more than the few lines that implement it (Listing~\ref{lst:tiersort}): by turning the ordering into a deterministic preprocessing step, correctness no longer depends on the model following an instruction.}
 
-\begin{lstlisting}[language=Python, caption={Tier-block splitting and deterministic cheapest-first reordering}, label={lst:tiersort}]
-def _is_tier_price(lines, i):
-    """Return line i's subscription price, or None for non-tier amounts."""
-    m = _PRICE_RE.search(lines[i].lower())
-    if not m or _RATE_AFTER_RE.match(lines[i].lower(), m.end()):
-        return None                       # per-unit rate "5 DA/SMS", not a tier
-    if _is_decimal_fraction(lines[i].lower(), m.start()):
-        return None                       # ",99" of "4,99 DA", not 99 DA
-    if any(w in " ".join(lines[i:i + 2]).lower() for w in _CREDIT_WORDS):
-        return None                       # a credit/bonus amount, not a price
-    return int(m.group(1).replace(" ", ""))
-
-def _split_offer_blocks(text):
-    """Cut text into [price_or_None, lines] blocks at each tier-price boundary."""
-    lines = text.split("\n")
-    blocks, price, buf = [], None, []
-    for i, line in enumerate(lines):
-        p = _is_tier_price(lines, i)
-        if p is not None:                 # a new tier starts here
-            blocks.append([price, buf]); price, buf = p, [line]
-        else:
-            buf.append(line)
-    blocks.append([price, buf])
-    return blocks                         # block 0 = preamble (price None)
-
+\begin{lstlisting}[language=Python, caption={Deterministic cheapest-first reordering (principle)}, label={lst:tiersort}]
 def _sort_offer_text_by_price(text):
-    """Reorder tier blocks ascending; preamble stays on top. Deterministic."""
-    blocks = _split_offer_blocks(text)
-    if len(blocks) <= 2:                  # preamble + <=1 tier: nothing to sort
+    """Reorder an offer's tiers cheapest-first; preamble stays on top."""
+    blocks = _split_offer_blocks(text)   # split at each true subscription price
+    if len(blocks) <= 2:                 # preamble + <=1 tier: nothing to sort
         return text
-    preamble = "\n".join(blocks[0][1])
-    priced = sorted((p, "\n".join(b)) for p, b in blocks[1:])  # by price
-    ordered = ([preamble] if preamble.strip() else []) + [t for _, t in priced]
-    return "\n".join(t for t in ordered if t.strip())
+    preamble, tiers = blocks[0], blocks[1:]
+    tiers.sort(key=lambda b: b.price)    # ascending subscription price
+    return render(preamble, tiers)       # already-ordered context for the LLM
 \end{lstlisting}
 
 \humantext{Because the ordering is performed here, in deterministic Python, the answer no longer depends on the model obeying an instruction to ``list from cheapest to most expensive'' --- the single change that eliminated both the ``random tier order'' and the ``dumps everything on screen'' defects at once.}
@@ -1501,26 +1463,16 @@ def _sort_offer_text_by_price(text):
 \subsection{Query Expansion and the Competitor Firewall}
 \humantext{Before a question is embedded, the lexicon expands it with Djezzy vocabulary, and the competitor firewall refuses questions whose \emph{subject} is a rival operator. Listing~\ref{lst:lexical} shows both, including the call-destination exception that keeps a real Djezzy question (``calls to Mobilis'') from being wrongly refused.}
 
-\begin{lstlisting}[language=Python, caption={Query expansion and competitor detection}, label={lst:lexical}]
-def expand_synonyms(query):
-    q = query.lower()
-    extras = []
-    for phrase, expansion in SYNONYMS.items():   # e.g. "gigas" -> "go data volume"
-        if phrase in q:
-            extras.append(expansion)
-    return query + " " + " ".join(extras) if extras else query
-
+\begin{lstlisting}[language=Python, caption={Competitor detection: subject vs. call destination}, label={lst:lexical}]
 def _is_competitor_query(query):
     q = _fold(query)
-    if any(g in q for g in COMPETITOR_GENERIC):   # "concurrent", "competitor"
-        return True
-    for b in COMPETITOR_BRANDS:                    # Ooredoo, Mobilis, Arabic forms
+    for b in COMPETITOR_BRANDS:               # Ooredoo, Mobilis, Arabic forms
         i = q.find(_fold(b))
         if i == -1:
             continue
         before = q[max(0, i - 30):i]
         # the brand is the SUBJECT unless a call cue ("vers", "calls to")
-        # appears just before it -> then it is only a call destination
+        # precedes it -> then it is only a call destination, allowed through
         if not any(cue in before for cue in CALL_DEST_CUES):
             return True
     return False
@@ -1533,56 +1485,37 @@ def _is_competitor_query(query):
 \subsection{HTML Cleaning (\texttt{clean\_html})}
 \humantext{An early crawl let Djezzy's mega-menu blocks leak into every page, which polluted the index and triggered hallucinations (Chapter~3). The cleaner removes noise in two passes --- whole tags, then any element whose \texttt{class}/\texttt{id} sub-tokens signal chrome --- with two safety rules learned the hard way: never decompose \texttt{<html>}/\texttt{<body>} (Bootstrap puts \texttt{modal-open} on \texttt{<body>}, and a naive match once wiped a whole page), and match \emph{sub-tokens} split on \texttt{-}/\texttt{\_} rather than raw substrings (so \texttt{mega} does not eat \texttt{omega}). Listing~\ref{lst:cleanhtml} shows it.}
 
-\begin{lstlisting}[language=Python, caption={Two-pass HTML cleaning}, label={lst:cleanhtml}]
+\begin{lstlisting}[language=Python, caption={Two-pass HTML cleaning (principle)}, label={lst:cleanhtml}]
 def clean_html(html):
     soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(config.STRIP_TAGS):        # <script>,<nav>,<footer>,<form>...
+    for tag in soup(config.STRIP_TAGS):       # pass 1: <script>,<nav>,<footer>...
         tag.decompose()
-    for el in soup.find_all(True):
-        if el.name in ("html", "body"):        # never wipe the page root
+    for el in soup.find_all(True):            # pass 2: by class/id sub-token
+        if el.name in ("html", "body"):       # never wipe the page root
             continue
-        try:
-            tokens = list(el.get("class") or [])
-            if el.get("id"):
-                tokens.append(el.get("id"))
-        except AttributeError:
-            continue                           # parent already detached -> gone
-        subtokens = [sub for tok in tokens
-                     for sub in tok.lower().replace("_", "-").split("-")]
-        if any(sub.startswith(h) for sub in subtokens   # menu, cookie, modal...
+        tokens = (el.get("class") or []) + ([el.get("id")] if el.get("id") else [])
+        subtokens = [s for t in tokens for s in t.lower().replace("_","-").split("-")]
+        if any(s.startswith(h) for s in subtokens   # menu, cookie, modal...
                for h in config.STRIP_CLASS_HINTS):
             el.decompose()
-    lines = [ln.strip() for ln in soup.get_text("\n").splitlines()]
-    return "\n".join(ln for ln in lines if ln)          # drop blank lines
+    return "\n".join(l.strip() for l in soup.get_text("\n").splitlines() if l.strip())
 \end{lstlisting}
 
 \subsection{The Scheduler and Index Hot-Swap}
 \humantext{A daemon thread re-scrapes the sites and rebuilds the FAISS index every day at 03:00 (\texttt{SCHEDULE\_TIME}); the same routine backs the ``Refresh'' button. The new index is published on a module attribute and a callback lets the running app swap it in \emph{without a restart}, so prices stay current with no downtime. Error handling is explicit and conservative: a lock prevents the daily job and a button press from colliding, and if a crawl returns zero pages the old index is kept rather than letting the bot go dark. Every outcome is appended to \texttt{refresh\_log.txt}. Listing~\ref{lst:scheduler} shows the core.}
 
-\begin{lstlisting}[language=Python, caption={Daily refresh with index hot-swap and fail-safe}, label={lst:scheduler}]
+\begin{lstlisting}[language=Python, caption={Daily refresh with index hot-swap and fail-safe (principle)}, label={lst:scheduler}]
 def _do_refresh():
     global CURRENT_INDEX
-    with _lock:                                  # daily job vs button: never both
-        try:
-            pages = scraper.run_scrape()
-            if not pages:                        # bad crawl: keep serving old data
-                _log_line("refresh FAILED: 0 pages; keeping old index")
-                return {"ok": False, "n_pages": 0}
-            CURRENT_INDEX = indexer.build_index(pages)   # hot-swap the live index
-            _log_line(f"refresh OK: {len(pages)} pages reindexed")
-            return {"ok": True, "n_pages": len(pages)}
-        except Exception as e:
-            _log_line(f"refresh ERROR: {e}")     # never crash the running app
+    with _lock:                              # daily job vs button: never both
+        pages = scraper.run_scrape()
+        if not pages:                        # bad crawl -> keep serving old data
             return {"ok": False, "n_pages": 0}
+        CURRENT_INDEX = indexer.build_index(pages)   # hot-swap the live index
+        return {"ok": True, "n_pages": len(pages)}
 
-def start_scheduler(on_done=None):
-    def _job():
-        result = _do_refresh()
-        if on_done:
-            on_done(result)                      # app.py publishes the new index
-    schedule.every().day.at(config.SCHEDULE_TIME).do(_job)   # 03:00 daily
-    threading.Thread(target=_scheduler_loop, daemon=True,
-                     name="djezzy-refresh").start()
+# runs every day at 03:00, and behind the UI "Refresh" button
+schedule.every().day.at(config.SCHEDULE_TIME).do(_do_refresh)
 \end{lstlisting}
 
 \section{User Interface (Gradio) and the Voice Round-Trip}
@@ -1600,21 +1533,12 @@ def start_scheduler(on_done=None):
 \subsection{The Voice Round-Trip}
 \humantext{The voice path reuses the exact same ``brain'' as the text path: the microphone audio is transcribed, the transcription goes through the identical retrieval, routing, and generation, and the answer is then synthesized. Because both paths call the same \texttt{generate\_answer}, voice and text can never drift apart. Each stage is timed separately for the latency measurements in Chapter~5. Listing~\ref{lst:voice} shows the round-trip.}
 
-\begin{lstlisting}[language=Python, caption={Voice round-trip (STT -> shared brain -> TTS)}, label={lst:voice}]
+\begin{lstlisting}[language=Python, caption={Voice round-trip: STT -> shared brain -> TTS}, label={lst:voice}]
 def voice_answer(audio_path, vector_db, history=None):
-    stages = {}
-    with timed(stages, "stt"):
-        transcription, lang = transcribe(audio_path)   # Whisper-medium
-
-    # Same retrieval/routing/generation as the text path
-    res = generate_answer(transcription, lang, vector_db, history)
-    stages["retrieval"]  = res["t_retrieval"]
-    stages["generation"] = res["t_generation"]
-
-    with timed(stages, "tts"):
-        wav_path = synthesize(res["text"], lang)        # XTTS-v2, on demand
-
-    record_latency("voice", res["route"], stages)
+    transcription, lang = transcribe(audio_path)       # Whisper-medium (STT)
+    res = generate_answer(transcription, lang,         # SAME brain as the text path
+                          vector_db, history)
+    wav_path = synthesize(res["text"], lang)           # XTTS-v2 (TTS, on demand)
     return {"transcription": transcription, "text": res["text"],
             "lang": lang, "route": res["route"], "wav_path": wav_path}
 \end{lstlisting}
