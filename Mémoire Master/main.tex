@@ -107,32 +107,35 @@
 % --- PAGE DE GARDE (ALGIERS 1 STANDARD) ---
 \begin{titlepage}
     \centering
-    \textbf{République Algérienne Démocratique et Populaire}\\
-    \textbf{Ministère de l'Enseignement Supérieur et de la Recherche Scientifique}\\[0.5cm]
-    
-    \textbf{Université d'Alger 1 - Benyoucef Benkhedda}\\[0.5cm]
+    \textbf{People's Democratic Republic of Algeria}\\
+    \textbf{Ministry of Higher Education and Scientific Research}\\[0.5cm]
+
+    \textbf{University of Algiers 1 -- Benyoucef Benkhedda}\\[0.5cm]
     \includegraphics[width=0.2\textwidth]{Images/Logo_Alger1.png}\\[0.6cm]
-    \textbf{Faculté des Sciences}\\
-    \textbf{Département d'Informatique}\\[1cm]
-    \Large \textbf{Master's Thesis}\\
-    \normalsize submitted in partial fulfillment of the requirements for the\\
-    \large \textbf{Master's degree in Computer Science}\\[0.5cm]
-    \normalsize \textbf{Specialty:} Intelligent Computer Systems Engineering (ISII)\\[1cm]
+    \textbf{Faculty of Sciences}\\
+    \textbf{Department of Computer Science}\\[1cm]
+
+    \large Dissertation submitted to obtain the degree of\\
+    \large \textbf{Master in Computer Science}\\[0.5cm]
+    \normalsize \textbf{Option:} Intelligent Computer Systems Engineering (ISII)\\[1cm]
 
     \LARGE \textbf{Topic}\\[1cm]
-    \large \textbf{DjezzyBot: Design and Implementation of a Multilingual Virtual Assistant Based on the RAG Architecture and Open-Source LLMs}\\[1cm]
+    \large \textbf{DjezzyBot: Design and Implementation of a Multilingual Virtual Assistant Based on the RAG Architecture and Open-Source LLMs}\\[1.5cm]
 
-    \begin{flushleft}
-    \textbf{Presented and defended by:}\\
-    Messaoudi Hemza Abderraouf\\
-    Yacef Mehdi\\[1cm]
-
-    \textbf{Supervisor:}\\
-    Mme. Amrouni Kahina\\[0.5cm]
-    \textbf{Co-supervisor:}\\
-    Mme. Benelmir Rima\\[1cm]
-
-    \end{flushleft}
+    \begin{minipage}[t]{0.48\textwidth}
+        \begin{flushleft}
+        \textbf{Supervised by:}\\
+        Mme. Amrouni Kahina \textit{(Supervisor)}\\
+        Mme. Benelmir Rima \textit{(Co-supervisor)}
+        \end{flushleft}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.48\textwidth}
+        \begin{flushright}
+        \textbf{Realised by:}\\
+        Messaoudi Hemza Abderraouf\\
+        Yacef Mehdi
+        \end{flushright}
+    \end{minipage}
 
     \vfill
     \textbf{Academic Year: 2025--2026}
@@ -236,17 +239,17 @@ Ce mémoire présente la conception et la réalisation de \textbf{DjezzyBot}, un
 \textbf{Acronym} & \textbf{Meaning} \\
 \midrule
 API    & Application Programming Interface \\
-ARPCE  & Autorité de Régulation de la Poste et des Communications Électroniques \\
+ARPCE  & Regulatory Authority for Post and Electronic Communications \\
 BERT   & Bidirectional Encoder Representations from Transformers \\
 BFS    & Breadth-First Search \\
 BPE    & Byte-Pair Encoding \\
 ChatML & Chat Markup Language \\
 FAISS  & Facebook AI Similarity Search \\
-FNI    & Fonds National d'Investissement (National Investment Fund) \\
+FNI    & National Investment Fund \\
 GPT    & Generative Pre-trained Transformer \\
 GPU    & Graphics Processing Unit \\
 HTML   & HyperText Markup Language \\
-ISII   & Ingénierie des Systèmes Informatiques Intelligents \\
+ISII   & Intelligent Computer Systems Engineering \\
 JSON   & JavaScript Object Notation \\
 LLM    & Large Language Model \\
 LSTM   & Long Short-Term Memory \\
@@ -309,7 +312,7 @@ XTTS   & Cross-lingual Text-to-Speech \\
 
 \humantext{A firm design decision was taken at the outset: the system would rely exclusively on \textit{open-source} components, with no paid APIs.} \humantext{At its core, it couples a Large Language Model (Qwen2.5, developed by Alibaba Cloud) with a RAG (\textit{Retrieval-Augmented Generation}) pipeline.} \humantext{This ordering is essential: the assistant first retrieves the relevant facts from a FAISS database and only then generates its answer. This grounding sharply \emph{reduces} the risk of an invented price --- it does not pretend to eliminate it (Chapter~5 measures the residual gap) --- and no data leaves the local machine.}
 
-\humantext{Multilingual input is handled without any translation step: a multilingual embedding model processes French, Arabic, English, and Darija \emph{directly}, and Qwen2.5 replies in the language in which the user wrote. A rule-based router is placed in front of the search and identifies commercial names such as ``Campuce'' or ``iZZY'' by exact text matching. This last mechanism is more important than it may appear, since an embedding model has never encountered an invented commercial name and cannot retrieve it reliably on its own.}
+\humantext{Multilingual input is handled without any translation step: a multilingual embedding model processes French, Arabic, English, and Darija \emph{directly}, and Qwen2.5 replies in the user's language --- French, English, or Arabic as written, and Modern Standard Arabic for a Darija question. A rule-based router is placed in front of the search and identifies commercial names such as ``Campuce'' or ``iZZY'' by exact text matching. This last mechanism is more important than it may appear, since an embedding model has never encountered an invented commercial name and cannot retrieve it reliably on its own.}
 
 \section*{Research Outline}
 \humantext{The thesis is organized into five main chapters, following the overall approach:}
