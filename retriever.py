@@ -64,6 +64,15 @@ _RATE_AFTER_RE = re.compile(
 # or as something that breaks the budget ceiling.
 _CREDIT_WORDS = ("credit", "crédit", "crèdit", "recharge", "bonus", "cadeau", "offert")
 
+# A price-TRAILING tier marker: "Pour 4000 DA", "Pour 2000 DA / Mois". Some Djezzy
+# pages (Legend, Legend Max, Zid, Confort) print the price AFTER its feature block,
+# so the price must CLOSE the block, not open it — otherwise every price pairs with
+# the NEXT tier's features (the Legend "price-trailing" bug, where 4500 DA / 145 GO
+# appeared though no 4500 DA tier exists). Detected only when >=2 such lines exist,
+# so price-leading pages (Campuce, iZZY) keep the original behaviour untouched.
+_POUR_PRICE_RE = re.compile(
+    r"\bpour\b\s*(\d[\d\s]{0,7}\d|\d)\s*(?:da|dinars?|dzd)\b", re.IGNORECASE)
+
 
 # ===========================================================================
 # Intent detection (pure helpers)
@@ -402,12 +411,38 @@ def _split_offer_blocks(text: str):
     """Split offer text into [price_or_None, [lines]] blocks at tier-price boundaries.
 
     Block 0 is the leading preamble/header (price None, possibly empty); each later
-    block starts at a tier (subscription) price line and runs until the next one, so
-    a tier's price stays glued to its own details. Defined ONCE here and shared by
-    the budget filter and the price-sorter, so "what counts as a tier boundary" can
-    never drift between the two.
+    block carries one tier (subscription) price, so a tier's price stays glued to its
+    own details. Defined ONCE here and shared by the budget filter and the price-sorter,
+    so "what counts as a tier boundary" can never drift between the two.
+
+    Handles BOTH page layouts:
+      * price-LEADING  ("1 600 DA\n70 GB ...")  — the price OPENS its block (default).
+      * price-TRAILING ("200 GO ...\nPour 4000 DA") — the price CLOSES its block.
+    The trailing branch fires only when >=2 "Pour X DA" lines are present, so a
+    price-leading page is parsed exactly as before (no regression).
     """
     lines = text.split("\n")
+
+    # --- price-TRAILING layout: each "Pour X DA" line closes its tier block -------
+    pour = []
+    for i, line in enumerate(lines):
+        m = _POUR_PRICE_RE.search(line.lower())
+        if m:
+            try:
+                pour.append((i, int(m.group(1).replace(" ", ""))))
+            except ValueError:
+                pass
+    if len(pour) >= 2:
+        blocks = [[None, []]]                 # empty preamble; header joins 1st tier
+        start = 0
+        for i, price in pour:
+            blocks.append([price, lines[start:i + 1]])   # features ... then the price
+            start = i + 1
+        if start < len(lines):
+            blocks[-1][1].extend(lines[start:])          # trailing tail joins last tier
+        return blocks
+
+    # --- price-LEADING layout (original behaviour) -------------------------------
     blocks = []                 # list of [price_or_None, [lines]]
     cur_price, cur_lines = None, []
     for i, line in enumerate(lines):
