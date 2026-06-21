@@ -401,6 +401,12 @@ def _is_tier_price(lines: list, i: int):
     ctx = " ".join(lines[i: i + 2]).lower()
     if any(w in ctx for w in _CREDIT_WORDS):
         return None
+    # Tariff line, not a subscription tier: "14 DA · Tarif de la connexion Internet
+    # 4,99 DA/Mo". On Cam Puce this bogus 14 DA "tier" made the welcome/tariff chunk
+    # sort cheapest-first (14 < 50), so the named route led with that blurb instead of
+    # the real price table. A real tier line never says "tarif" or carries a /unit rate.
+    if "tarif" in ctx or _RATE_AFTER_RE.search(ctx):
+        return None
     try:
         return int(m.group(1).replace(" ", ""))
     except ValueError:
