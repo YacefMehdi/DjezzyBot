@@ -464,24 +464,13 @@ def _sort_offer_text_by_price(text: str) -> str:
     "random tier order" bug: the context is ALREADY cheapest-first, so the answer's
     order no longer depends on the LLM obeying 'liste du moins cher au plus cher'.
     A chunk with 0–1 tiers is returned unchanged (nothing to reorder).
-
-    On price-TRAILING pages (Legend: "...300 DA Crédit ... Pour 100 DA") the real tier
-    price sits AFTER a larger crédit/bonus figure, so the model quoted the crédit as the
-    price (1 GO read as 300 DA, not 100 DA). The splitter already knows the true price,
-    so on those pages we echo it as each block's FIRST line. "Trailing" is detected by the
-    same >=2 "Pour X DA" rule the splitter uses, so price-LEADING pages (Zid, Cam Puce)
-    are left byte-for-byte unchanged. The bare echo keys on nothing the trailing splitter
-    reads ("Pour X DA"), so re-parsing and _min_tier_price ignore it — order is unchanged.
     """
     blocks = _split_offer_blocks(text)
     if len(blocks) <= 2:                         # preamble + at most one tier
         return text
-    trailing = sum(1 for ln in text.split("\n")
-                   if _POUR_PRICE_RE.search(ln.lower())) >= 2
     preamble = "\n".join(blocks[0][1])           # block 0 = header (price None)
-    priced = sorted(
-        ((p, (f"{p} DA\n" if trailing else "") + "\n".join(blk)) for p, blk in blocks[1:]),
-        key=lambda x: x[0])
+    priced = sorted((( p, "\n".join(blk)) for p, blk in blocks[1:]),
+                    key=lambda x: x[0])
     ordered = ([preamble] if preamble.strip() else []) + [t for _, t in priced]
     return "\n".join(t for t in ordered if t.strip())
 
