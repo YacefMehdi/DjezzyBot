@@ -45,6 +45,11 @@ check(all(d.metadata.get("catalog") for d in docs), "named served from catalog")
 for p in (100, 1000, 1500, 2000, 2500, 3000, 4000):
     check(p in prices_in(txt), f"Legend context contains the {p} DA tier")
 check("200 Go" in txt, "Legend context mentions 200 Go (top tier)")
+# the two same-price 2000 DA tiers must be DISTINCT lines (90 Go vs 70 Go), so the LLM
+# can't merge them into a single "2000 DA" — the bug the user caught
+check("2000 DA (90 Go)" in txt and "2000 DA (70 Go)" in txt,
+      "the two 2000 DA Legend tiers are disambiguated (90 Go vs 70 Go)")
+check(txt.count("2000 DA") >= 2, "both 2000 DA tiers are present, not merged")
 # the bug was a phantom price: nothing outside the real tier set should appear
 check(set(prices_in(txt)) <= {100, 300, 1000, 1500, 2000, 2500, 3000, 4000},
       "Legend context has no phantom price (300 = real crédit on the 100 DA tier)")

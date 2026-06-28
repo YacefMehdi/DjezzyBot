@@ -24,7 +24,9 @@ DESIGN
 """
 
 import json
+import re
 import unicodedata
+from collections import Counter
 
 import config
 
@@ -107,6 +109,32 @@ def starting_price(rec: dict):
     return tiers[0]["price"] if tiers else None
 
 
+def _lead_volume(details: str):
+    """The leading data volume in a tier's details (e.g. '90 Go'), for disambiguation."""
+    m = re.match(r"\s*(\d+\s*(?:Go|Mo|GB|MB))\b", details or "", re.IGNORECASE)
+    return m.group(1).strip() if m else None
+
+
+def _tier_lines(tiers: list) -> list:
+    """Render '- <price> DA : <details>' lines, disambiguating same-price tiers.
+
+    Two distinct forfaits can share a price (e.g. Legend's two 2000 DA options, 90 Go
+    vs 70 Go). Printed as two identical '2000 DA :' lines, the LLM treats them as a
+    duplicate and drops one. Tagging the price with its volume — '2000 DA (90 Go)' —
+    keeps the lines distinct so BOTH always survive into the answer.
+    """
+    counts = Counter(t["price"] for t in tiers)
+    lines = []
+    for t in tiers:
+        label = f"{t['price']} DA"
+        if counts[t["price"]] > 1:
+            vol = _lead_volume(t.get("details", ""))
+            if vol:
+                label = f"{t['price']} DA ({vol})"
+        lines.append(f"- {label} : {t.get('details', '')}")
+    return lines
+
+
 def _header(rec: dict) -> str:
     name = rec.get("name", "").strip()
     head = name if _norm(name).startswith("djezzy") else f"Djezzy {name}"
@@ -144,8 +172,7 @@ def format_offer(rec: dict) -> str:
     tiers = _tiers_sorted(rec)
     if tiers:
         lines.append("Tarifs (du moins cher au plus cher) :")
-        for t in tiers:
-            lines.append(f"- {t['price']} DA : {t.get('details', '')}")
+        lines.extend(_tier_lines(tiers))
     _common_body(rec, lines, tiers)
     return "\n".join(lines)
 
@@ -160,8 +187,7 @@ def format_budget(rec: dict, budget: int):
     if not affordable:
         return None, None
     lines = [_header(rec), "Forfaits dans votre budget (du moins cher au plus cher) :"]
-    for t in affordable:
-        lines.append(f"- {t['price']} DA : {t.get('details', '')}")
+    lines.extend(_tier_lines(affordable))
     if rec.get("url"):
         lines.append("Page : " + rec["url"])
     return "\n".join(lines), affordable[0]["price"]
@@ -238,12 +264,10 @@ def format_roaming(dest: dict) -> str:
     internet = sorted(dest.get("internet", []), key=lambda t: t["price"])
     if mixte:
         lines.append("Forfaits Internet & Voix (du moins cher au plus cher) :")
-        for t in mixte:
-            lines.append(f"- {t['price']} DA : {t.get('details', '')}")
+        lines.extend(_tier_lines(mixte))
     if internet:
         lines.append("Forfaits Internet seul (du moins cher au plus cher) :")
-        for t in internet:
-            lines.append(f"- {t['price']} DA : {t.get('details', '')}")
+        lines.extend(_tier_lines(internet))
     if dest.get("welcome"):
         lines.append("SIM de bienvenue : " + dest["welcome"])
     if dest.get("info"):                       # customer-facing; `notes` is curator-only
