@@ -220,12 +220,16 @@ def on_voice(audio_path, chat_history):
         yield chat_history + [rec, {"role": "assistant",
                                     "content": f"⚠️ Erreur vocale — {where}"}], None
         return
-    yield chat_history + [
+    msgs = chat_history + [
         rec,
         {"role": "user", "content": _with_ts(f"🎙️ {result['transcription']}")},
         {"role": "assistant", "content": _with_ts(result["text"])},
-        {"role": "assistant", "content": {"path": result["wav_path"]}},  # spoken reply (replayable)
-    ], result["wav_path"]
+    ]
+    # Only add the spoken-reply bubble if TTS actually produced audio; if VRAM was too
+    # tight even for the CPU fallback, the text answer still stands (no error bubble).
+    if result.get("wav_path"):
+        msgs = msgs + [{"role": "assistant", "content": {"path": result["wav_path"]}}]
+    yield msgs, result.get("wav_path")
 
 
 # ---------------------------------------------------------------------------

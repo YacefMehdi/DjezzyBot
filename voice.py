@@ -260,27 +260,79 @@ def _expand_for_tts(text: str, lang: str) -> str:
     return text
 
 
-def synthesize(text: str, lang: str) -> str:
-    """Synthesize `text` to a WAV file and return its path.
+def _is_alloc_error(err) -> bool:
+    """A CUDA / cuBLAS memory-allocation failure (vs a genuine code bug).
 
-    XTTS only has fr/en/ar voices, so Darija ("dz") is spoken with the Arabic
-    voice via config.TTS_LANG_MAP. Text is expanded for natural pronunciation.
+    The T4 OOMs at XTTS inference time surface in several shapes — a typed
+    OutOfMemoryError, a generic 'CUDA out of memory' RuntimeError, or
+    'cuBLAS failed with status CUBLAS_STATUS_ALLOC_FAILED' (which does NOT contain
+    'out of memory'). All mean the same thing: not enough free VRAM right now.
     """
-    model = load_tts()
-    os.makedirs(_tts_dir, exist_ok=True)
-    xtts_lang = config.TTS_LANG_MAP.get(lang, "fr")
-    spoken = _expand_for_tts(text, lang)
-    out_path = os.path.join(_tts_dir, f"tts_{int(time.time()*1000)}.wav")
-    # XTTS-v2 is a multi-speaker (voice-cloning) model; newer Coqui builds REQUIRE
-    # an explicit speaker. Use the first built-in studio voice so the call never
-    # errors and every answer keeps the same consistent voice. (Single-speaker
-    # builds expose no `speakers`, so we simply omit it and keep the old behaviour.)
+    s = str(err).lower()
+    return any(k in s for k in
+               ("out of memory", "cublas", "alloc", "cudnn", "cuda error"))
+
+
+def _tts_to_file(model, spoken: str, xtts_lang: str, out_path: str):
+    # XTTS-v2 is a multi-speaker (voice-cloning) model; newer Coqui builds REQUIRE an
+    # explicit speaker. Use the first built-in studio voice so the call never errors and
+    # every answer keeps the same voice. (Single-speaker builds expose no `speakers`.)
     kwargs = {}
     speakers = getattr(model, "speakers", None) or []
     if speakers:
         kwargs["speaker"] = speakers[0]
     model.tts_to_file(text=spoken, language=xtts_lang, file_path=out_path, **kwargs)
-    return out_path
+
+
+def synthesize(text: str, lang: str):
+    """Synthesize `text` to a WAV and return its path, or None if TTS cannot run.
+
+    XTTS only has fr/en/ar voices, so Darija ("dz") is spoken with the Arabic voice.
+    On the shared T4, XTTS's cuBLAS matmuls sometimes fail to allocate workspace once
+    Qwen/Whisper have filled VRAM (CUBLAS_STATUS_ALLOC_FAILED). To make the voice path
+    robust we: (1) release cached blocks first, (2) retry once on the GPU, then
+    (3) fall back to running TTS on the CPU — slower, but the answer still gets spoken
+    instead of erroring. Returns None ONLY if even CPU synthesis fails, so the caller
+    degrades to a text-only answer rather than showing an error bubble.
+    """
+    global _tts
+    model = load_tts()
+    os.makedirs(_tts_dir, exist_ok=True)
+    xtts_lang = config.TTS_LANG_MAP.get(lang, "fr")
+    spoken = _expand_for_tts(text, lang)
+    out_path = os.path.join(_tts_dir, f"tts_{int(time.time()*1000)}.wav")
+
+    try:
+        import torch
+    except Exception:
+        torch = None
+
+    def _free():
+        if torch is not None and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    _free()                                   # release Qwen/Whisper cached blocks first
+    for attempt in (1, 2):                    # GPU try, then one retry after clearing
+        try:
+            _tts_to_file(model, spoken, xtts_lang, out_path)
+            return out_path
+        except RuntimeError as e:
+            if not _is_alloc_error(e):
+                raise                          # a real bug — let it surface
+            logger.warning("XTTS GPU synth VRAM failure (attempt %d): %s", attempt, e)
+            _free()
+
+    # Repeated GPU alloc failures → move XTTS to the CPU for good (the T4 is chronically
+    # tight) and synthesize there. Reliable, just slower; no more error bubbles.
+    try:
+        _tts = model.to("cpu")
+        _free()
+        logger.warning("XTTS moved to CPU after repeated GPU alloc failures (slower).")
+        _tts_to_file(_tts, spoken, xtts_lang, out_path)
+        return out_path
+    except Exception:
+        logger.exception("TTS failed on CPU too — returning no audio (text-only answer).")
+        return None
 
 
 # ===========================================================================
@@ -305,7 +357,7 @@ def voice_answer(audio_path: str, vector_db, history: list = None) -> dict:
     text, route = res["text"], res["route"]
 
     with timed(stages, "tts"):
-        wav_path = synthesize(text, lang)
+        wav_path = synthesize(text, lang)     # None if TTS could not run (text-only)
 
     record_latency("voice", route, stages)
     return {
