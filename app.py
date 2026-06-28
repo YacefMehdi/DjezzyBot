@@ -17,7 +17,9 @@ Run:  python app.py
 
 import logging
 import os
+import re
 import traceback
+from datetime import datetime, timedelta, timezone
 
 import config
 import scraper
@@ -81,18 +83,47 @@ def _status_text() -> str:
 # ---------------------------------------------------------------------------
 # Callbacks
 # ---------------------------------------------------------------------------
+# --- message timestamps (texting-app style) --------------------------------
+# Algeria is UTC+1 year-round (no DST); Colab runs in UTC, so we offset explicitly
+# rather than trust the server clock. The stamp is appended to the DISPLAYED message
+# as a small muted line and stripped back out before the text reaches the LLM, so it
+# never pollutes the prompt.
+_DZ_TZ = timezone(timedelta(hours=1))
+_TS_RE = re.compile(r"\n\n<sub>.*?</sub>\s*$", re.DOTALL)
+# Transient "bot is typing" bubble, yielded while the (slow) answer is generated so the
+# screen isn't frozen after we removed Gradio's queue spinner. Never persisted/sent to LLM.
+_TYPING = "*✍️ DjezzyBot rédige…*"
+
+
+def _stamp() -> str:
+    return datetime.now(_DZ_TZ).strftime("%H:%M · %d/%m")
+
+
+def _with_ts(text: str) -> str:
+    """Append a muted timestamp line to a displayed message."""
+    return f"{text}\n\n<sub>{_stamp()}</sub>"
+
+
+def _strip_ts(text):
+    """Remove the appended timestamp so the LLM sees the clean message text."""
+    return _TS_RE.sub("", text) if isinstance(text, str) else text
+
+
 def _history_to_messages(chat_history):
     """Convert Gradio 'messages' history to the bot's role/content list.
 
     Audio bubbles (content is a {"path": ...} dict for the recorded question or the
-    spoken answer) are SKIPPED — only the text turns are sent to the LLM, so the
-    embedded media never pollutes the prompt.
+    spoken answer) are SKIPPED, and the appended timestamp is stripped — only the
+    clean text turns are sent to the LLM, so neither media nor timestamps pollute
+    the prompt.
     """
     msgs = []
     for m in chat_history or []:
         if (isinstance(m, dict) and m.get("role") in ("user", "assistant")
-                and isinstance(m.get("content"), str) and m["content"].strip()):
-            msgs.append({"role": m["role"], "content": m["content"]})
+                and isinstance(m.get("content"), str)):
+            content = _strip_ts(m["content"]).strip()
+            if content:
+                msgs.append({"role": m["role"], "content": content})
     return msgs
 
 
@@ -105,34 +136,40 @@ def add_user_text(message, chat_history):
     """
     chat_history = chat_history or []
     if message and message.strip():
-        chat_history = chat_history + [{"role": "user", "content": message}]
+        chat_history = chat_history + [{"role": "user", "content": _with_ts(message)}]
     return chat_history, ""
 
 
 def reply_text(chat_history, speak):
     """Phase 2 (slow): answer the last user message already shown in the chat.
 
-    If `speak` (the 'read aloud' toggle) is on, the reply is also synthesized — and
-    appended as a playable audio bubble so it STAYS in the conversation and can be
-    replayed later, not just auto-played once. Returns (chat, spoken-reply wav).
+    A GENERATOR: it first yields a transient "typing…" bubble (so the screen isn't
+    frozen during the long generation now that the queue spinner is hidden), then
+    yields the real answer. If `speak` is on, the reply is also synthesized and
+    appended as a playable audio bubble so it STAYS in the conversation. Yields
+    (chat, spoken-reply wav).
     """
     chat_history = chat_history or []
     if not chat_history or chat_history[-1].get("role") != "user":
-        return chat_history, None
-    message = chat_history[-1].get("content")
+        yield chat_history, None
+        return
+    message = _strip_ts(chat_history[-1].get("content"))
     if not isinstance(message, str) or not message.strip():
-        return chat_history, None
+        yield chat_history, None
+        return
     if STATE["index"] is None:
-        return chat_history + [{"role": "assistant",
-                                "content": "⚠️ La base n'est pas encore indexée. "
-                                           "Cliquez sur « Rafraîchir »."}], None
+        yield chat_history + [{"role": "assistant",
+                               "content": "⚠️ La base n'est pas encore indexée. "
+                                          "Cliquez sur « Rafraîchir »."}], None
+        return
+    yield chat_history + [{"role": "assistant", "content": _TYPING}], None   # typing…
     prior = _history_to_messages(chat_history[:-1])     # everything before this question
     result = bot.answer(message, STATE["index"], prior)
-    chat_history = chat_history + [{"role": "assistant", "content": result["text"]}]
+    out = chat_history + [{"role": "assistant", "content": _with_ts(result["text"])}]
     wav = voice.synthesize(result["text"], result["lang"]) if speak else None
     if wav:
-        chat_history = chat_history + [{"role": "assistant", "content": {"path": wav}}]
-    return chat_history, wav
+        out = out + [{"role": "assistant", "content": {"path": wav}}]
+    yield out, wav
 
 
 def on_clear():
@@ -160,13 +197,16 @@ def on_voice(audio_path, chat_history):
     """
     chat_history = chat_history or []
     if audio_path is None:
-        return chat_history, None
+        yield chat_history, None
+        return
+    rec = {"role": "user", "content": {"path": audio_path}}          # your recording (replayable)
     if STATE["index"] is None:
-        chat_history += [{"role": "user", "content": {"path": audio_path}},
-                         {"role": "assistant",
-                          "content": "⚠️ La base n'est pas encore indexée. "
-                                     "Cliquez sur « Rafraîchir »."}]
-        return chat_history, None
+        yield chat_history + [rec, {"role": "assistant",
+                                    "content": "⚠️ La base n'est pas encore indexée. "
+                                               "Cliquez sur « Rafraîchir »."}], None
+        return
+    # immediately show the recording + a typing bubble while we transcribe & answer
+    yield chat_history + [rec, {"role": "assistant", "content": _TYPING}], None
     prior = _history_to_messages(chat_history)
     try:
         result = voice.voice_answer(audio_path, STATE["index"], prior)
@@ -177,17 +217,15 @@ def on_voice(audio_path, chat_history):
         logging.getLogger("djezzybot.app").exception("voice path failed")
         tb = traceback.format_exc().strip().splitlines()
         where = tb[-1] if tb else f"{type(e).__name__}: {e}"
-        chat_history += [{"role": "user", "content": {"path": audio_path}},
-                         {"role": "assistant",
-                          "content": f"⚠️ Erreur vocale — {where}"}]
-        return chat_history, None
-    chat_history += [
-        {"role": "user", "content": {"path": audio_path}},          # your recording (replayable)
-        {"role": "user", "content": f"🎙️ {result['transcription']}"},
-        {"role": "assistant", "content": result["text"]},
+        yield chat_history + [rec, {"role": "assistant",
+                                    "content": f"⚠️ Erreur vocale — {where}"}], None
+        return
+    yield chat_history + [
+        rec,
+        {"role": "user", "content": _with_ts(f"🎙️ {result['transcription']}")},
+        {"role": "assistant", "content": _with_ts(result["text"])},
         {"role": "assistant", "content": {"path": result["wav_path"]}},  # spoken reply (replayable)
-    ]
-    return chat_history, result["wav_path"]
+    ], result["wav_path"]
 
 
 # ---------------------------------------------------------------------------
@@ -259,11 +297,19 @@ def build_ui():
         # box, then reply_text generates. Voice always speaks back; typed answers speak
         # only when the toggle is on. Every long-running event is captured so the Stop
         # button can cancel it.
-        send_evt = send_btn.click(add_user_text, [txt, chatbot], [chatbot, txt]) \
-            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out])
-        submit_evt = txt.submit(add_user_text, [txt, chatbot], [chatbot, txt]) \
-            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out])
-        voice_evt = mic.stop_recording(on_voice, [mic, chatbot], [chatbot, voice_out])
+        # show_progress="hidden" removes Gradio's ugly "processing | 55s/32s" queue-ETA
+        # boxes that used to clutter the output components; the chat echo + Stop button
+        # already make it obvious the bot is working.
+        send_evt = send_btn.click(add_user_text, [txt, chatbot], [chatbot, txt],
+                                  show_progress="hidden") \
+            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out],
+                  show_progress="hidden")
+        submit_evt = txt.submit(add_user_text, [txt, chatbot], [chatbot, txt],
+                                show_progress="hidden") \
+            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out],
+                  show_progress="hidden")
+        voice_evt = mic.stop_recording(on_voice, [mic, chatbot], [chatbot, voice_out],
+                                       show_progress="hidden")
 
         stop_btn.click(None, None, None, cancels=[send_evt, submit_evt, voice_evt])
         clear_btn.click(on_clear, None, [chatbot, txt, voice_out])
