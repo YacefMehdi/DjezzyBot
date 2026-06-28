@@ -1,0 +1,115 @@
+{
+  "_meta": {
+    "purpose": "Curated, structured catalog of Djezzy roaming forfaits, per destination. Source of truth for the ROAMING route, replacing brittle parsing of the scraped roaming pages (which mix 'Internet & Voix' and 'Internet seul' families and use inconsistent 'Pour X DA' vs 'X DA' price layouts).",
+    "source": "Extracted from data/djezzy_pages.json and verified against the PUBLIC djezzy.dz site (2026-06-28). Égypte, Tunisie, France, Espagne, Hadj/Omra price-verified by the user; Turquie from the scrape (verify).",
+    "verify_note": "Djezzy roaming exists ONLY for these destinations. Maroc, Dubai, Émirats are NOT offered (they were phantom router triggers, removed). CAN (Coupe d'Afrique des Nations 2025, Maroc) was a seasonal event offer, now removed from the site.",
+    "prices_in": "DA (Algerian dinar)"
+  },
+  "destinations": [
+    {
+      "name": "Égypte",
+      "slug": "egypte",
+      "markers": ["egypte"],
+      "zone": "Monde arabe",
+      "url": "https://www.djezzy.dz/particuliers/offres/forfaits-roaming-egypte",
+      "mixte": [
+        {"price": 1000, "details": "1 Go internet, 10 min d'appels reçus, 30 min vers Djezzy, 10 SMS émis, validité 7 jours"},
+        {"price": 2000, "details": "3 Go internet, 30 min d'appels reçus, 2 h vers Djezzy, 30 SMS émis, validité 15 jours"},
+        {"price": 4000, "details": "10 Go internet, 60 min d'appels reçus, 5 h vers Djezzy, 60 SMS émis, validité 30 jours"}
+      ],
+      "internet": [
+        {"price": 1000, "details": "2 Go internet, validité 15 jours"},
+        {"price": 3000, "details": "10 Go internet, validité 30 jours"}
+      ],
+      "notes": "Vérifié.",
+      "verify": false
+    },
+    {
+      "name": "Tunisie",
+      "slug": "tunisie",
+      "markers": ["tunisie"],
+      "zone": "Monde arabe",
+      "url": "https://www.djezzy.dz/particuliers/offres/forfaits-roaming-tunisie-3",
+      "mixte": [
+        {"price": 1000, "details": "5 Go internet, 30 min vers Djezzy, 10 SMS émis, validité 7 jours"},
+        {"price": 2000, "details": "12 Go internet, 40 min vers Djezzy, 10 SMS émis, validité 30 jours"},
+        {"price": 5000, "details": "40 Go internet, 60 min vers Djezzy, 10 SMS émis, validité 30 jours"}
+      ],
+      "internet": [
+        {"price": 500, "details": "3 Go internet, validité 7 jours"},
+        {"price": 1000, "details": "8 Go internet, validité 15 jours"},
+        {"price": 2000, "details": "20 Go internet, validité 30 jours"}
+      ],
+      "notes": "Vérifié.",
+      "verify": false
+    },
+    {
+      "name": "France",
+      "slug": "france",
+      "markers": ["france"],
+      "zone": "Europe",
+      "url": "https://www.djezzy.dz/particuliers/offres/forfaits-roaming-france-2",
+      "mixte": [
+        {"price": 1000, "details": "1 Go internet, 10 min d'appels reçus, 10 min vers Djezzy, 20 SMS émis, validité 7 jours"},
+        {"price": 2000, "details": "2 Go internet, 20 min d'appels reçus, 50 min vers Djezzy, 20 SMS émis, validité 15 jours"},
+        {"price": 5000, "details": "8 Go internet, 40 min d'appels reçus, 30 min vers Djezzy, 40 SMS émis, validité 30 jours"}
+      ],
+      "internet": [
+        {"price": 1000, "details": "2 Go internet, validité 7 jours"},
+        {"price": 2000, "details": "5 Go internet, validité 30 jours"}
+      ],
+      "notes": "Onglet « Internet & Voix » vérifié sur capture officielle ; le « 8 Go » du bandeau est le maximum (palier 5000 DA), pas un palier d'entrée.",
+      "verify": false
+    },
+    {
+      "name": "Turquie",
+      "slug": "turquie",
+      "markers": ["turquie"],
+      "zone": "Europe",
+      "url": "https://www.djezzy.dz/particuliers/offres/forfaits-roaming-turquie",
+      "mixte": [
+        {"price": 1000, "details": "1 Go internet, 10 min d'appels reçus, 30 min vers Djezzy, 10 SMS émis, validité 7 jours"},
+        {"price": 2000, "details": "2 Go internet, 30 min d'appels reçus, 3 h vers Djezzy, 30 SMS émis, validité 15 jours"},
+        {"price": 4000, "details": "5 Go internet, 60 min d'appels reçus, 8 h vers Djezzy, 60 SMS émis, validité 30 jours"}
+      ],
+      "internet": [
+        {"price": 1200, "details": "2 Go internet, validité 15 jours"},
+        {"price": 3000, "details": "5 Go internet, validité 30 jours"}
+      ],
+      "notes": "Vérifié par l'utilisateur (2026-06-28).",
+      "verify": false
+    },
+    {
+      "name": "Espagne",
+      "slug": "espagne",
+      "markers": ["espagne"],
+      "zone": "Europe",
+      "url": "https://www.djezzy.dz/particuliers/offres/forfaits-roaming-espagne",
+      "mixte": [
+        {"price": 2000, "details": "2 Go internet, 30 min d'appels reçus, 120 min vers Djezzy, 20 SMS émis, validité 30 jours"}
+      ],
+      "internet": [
+        {"price": 1200, "details": "1 Go internet, validité 7 jours"}
+      ],
+      "notes": "Confirmé : seulement 2 paliers (1 mixte + 1 internet seul).",
+      "verify": false
+    },
+    {
+      "name": "Hadj & Omra",
+      "slug": "hadj-omra",
+      "markers": ["hadj", "omra"],
+      "zone": "Arabie Saoudite (Lieux Saints)",
+      "url": "https://www.djezzy.dz/particuliers/offres/offre-hadj-et-omra",
+      "mixte": [
+        {"price": 1000, "details": "3 Go internet, 30 min vers Djezzy, 10 min d'appels reçus, 10 SMS, validité 7 jours"},
+        {"price": 2000, "details": "12 Go internet, appels illimités vers Djezzy, 20 min d'appels reçus, 10 SMS, validité 35 jours (BEST-SELLER)"},
+        {"price": 4000, "details": "20 Go internet, appels illimités vers Djezzy, 40 min d'appels reçus, 10 SMS, validité 35 jours"}
+      ],
+      "internet": [],
+      "welcome": "SIM gratuite offerte à tous les pèlerins : 1 Go d'internet + 10 min d'appels vers Djezzy depuis les Lieux Saints, valable 48 heures.",
+      "info": "Forfaits utilisables uniquement en Arabie Saoudite. Pour appeler un numéro algérien depuis l'Arabie Saoudite, composer +213 suivi du numéro.",
+      "notes": "Vérifié sur capture officielle. Page sans préfixe « Pour » sur les prix (cause du mauvais parsing initial).",
+      "verify": false
+    }
+  ]
+}

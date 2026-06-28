@@ -35,6 +35,7 @@ import logging
 
 import config
 from data import lexicon
+from data import catalog
 
 logger = logging.getLogger("djezzybot.retriever")
 
@@ -207,6 +208,21 @@ def _copy_doc(doc, new_text: str = None):
     return Document(
         page_content=doc.page_content if new_text is None else new_text,
         metadata=dict(doc.metadata),
+    )
+
+
+def _catalog_doc(text: str, url: str, route: str):
+    """Wrap a curated-catalog text block into a LangChain Document.
+
+    The priced routes (named/catalogue/budget/comparison) answer from the structured
+    `data/offers.json` catalog instead of parsing scraped chunks, so their context is
+    clean by construction. metadata carries the source page URL (for citation) and a
+    `catalog` flag so bot.py / logs can tell catalog-sourced context from FAISS chunks.
+    """
+    from langchain_core.documents import Document
+    return Document(
+        page_content=text,
+        metadata={"source_url": url or "", "catalog": True, "route": route},
     )
 
 
@@ -626,7 +642,16 @@ def smart_retrieve(query: str, lang: str, vector_db):
     # --- ROAMING (wins over budget: a foreign price is never filtered national) --
     if route == "roaming":
         roaming = _roaming_markers(query)
-        logger.info("route=roaming markers=%s", roaming)
+        # Curated catalog first: a known destination is answered from its verified
+        # tiers (both 'Internet & Voix' and 'Internet seul' families), which fixes the
+        # garbled/hallucinated roaming answers caused by the inconsistent page layouts
+        # ("Pour 2000 DA" vs plain "2000 DA" on Hadj/Omra). A generic roaming question
+        # (markers=["roaming"], no destination) falls through to the scraped page.
+        dest = catalog.roaming_for_markers(roaming)
+        if dest is not None:
+            logger.info("route=roaming source=catalog dest=%s", dest.get("slug"))
+            return [_catalog_doc(catalog.format_roaming(dest), dest.get("url", ""), "roaming")]
+        logger.info("route=roaming source=faiss markers=%s", roaming)
         docs = _faiss(vector_db, expanded, config.K_ROAMING * 2)
         preferred, other = [], []
         for d in docs:
@@ -642,7 +667,20 @@ def smart_retrieve(query: str, lang: str, vector_db):
     # whole list is ordered in Python (the model won't sort reliably). This fixes
     # both the missing-gamme and random-order problems at the source.
     if route == "catalogue":
-        logger.info("route=catalogue")
+        # Curated catalog first: one verified line per gamme (name + starting price),
+        # priced gammes cheapest-first, services/info last. No FAISS parsing, so the
+        # menu can't drop a gamme or invent a price.
+        cat = catalog.records()
+        if cat:
+            logger.info("route=catalogue source=catalog n=%d", len(cat))
+            ranked = sorted(
+                cat,
+                key=lambda r: (catalog.starting_price(r) is None,
+                               catalog.starting_price(r) or 0),
+            )
+            return [_catalog_doc(catalog.catalogue_line(r), r.get("url", ""), "catalogue")
+                    for r in ranked]
+        logger.info("route=catalogue source=faiss")
         entries, seen, seen_urls = [], set(), set()
         for name in lexicon.OFFER_NAMES:
             canonical = "campuce" if name in ("cam puce", "campuce") else name
@@ -666,7 +704,20 @@ def smart_retrieve(query: str, lang: str, vector_db):
     # Offers presented cheapest-first, and each offer's own tiers sorted too — same
     # deterministic Python ordering as catalogue/budget, never left to the LLM.
     if route == "comparison":
-        logger.info("route=comparison offers=%s", offers)
+        # Curated catalog first: if every named offer is in the catalog, present each
+        # one's verified tiers side by side, cheapest offer first. Falls back to the
+        # scraped-page comparison when an offer isn't catalogued.
+        recs = [(name, catalog.by_name(name)) for name in offers]
+        if recs and all(rec is not None for _, rec in recs):
+            logger.info("route=comparison source=catalog offers=%s", offers)
+            ranked = sorted(
+                recs,
+                key=lambda nr: (catalog.starting_price(nr[1]) is None,
+                                catalog.starting_price(nr[1]) or 0),
+            )
+            return [_catalog_doc(catalog.format_offer(rec), rec.get("url", ""), "comparison")
+                    for _, rec in ranked]
+        logger.info("route=comparison source=faiss offers=%s", offers)
         groups = []                              # (cheapest_price, [chunks]) per offer
         for name in offers:
             chunks = _page_chunks_for_offer(vector_db, name, config.K_COMPARISON_PER_OFFER)
@@ -681,7 +732,19 @@ def smart_retrieve(query: str, lang: str, vector_db):
     # --- BUDGET: pool + Python price filter (cheapest first, LLM never filters) --
     if route == "budget":
         budget = _extract_budget(query)
-        logger.info("route=budget budget=%s DA", budget)
+        # Curated catalog first: keep each gamme's verified tiers priced <= budget,
+        # offers ordered by cheapest affordable tier. Built from structured tiers, so
+        # no crédit/bonus amount or per-unit rate can leak in as an affordable price.
+        cat_hits = []
+        for rec in catalog.records():
+            text, cheapest = catalog.format_budget(rec, budget)
+            if cheapest is not None:
+                cat_hits.append((cheapest, _catalog_doc(text, rec.get("url", ""), "budget")))
+        if cat_hits:
+            logger.info("route=budget source=catalog budget=%s DA hits=%d", budget, len(cat_hits))
+            cat_hits.sort(key=lambda x: x[0])
+            return [d for _, d in cat_hits[: config.K_BUDGET_RETURN]]
+        logger.info("route=budget source=faiss budget=%s DA", budget)
         pool = _faiss(vector_db, expanded, config.K_BUDGET_POOL)
         # also pull every offer's chunks so cheap offers aren't missed by dense rank
         for name in lexicon.OFFER_NAMES:
@@ -695,8 +758,16 @@ def smart_retrieve(query: str, lang: str, vector_db):
 
     # --- NAMED OFFER: the offer's WHOLE page (all tiers) + a couple dense --------
     if route == "named":
-        logger.info("route=named_offer offers=%s", offers)
         primary = offers[0]
+        # Curated catalog first: answer the named offer from its verified record (clean,
+        # already-ordered tiers) — this is the core fix for "Legend = 100 DA", missing
+        # tiers and hallucinated prices. Falls back to the scraped page if the offer
+        # isn't catalogued (e.g. a device/service page only present in the crawl).
+        rec = catalog.by_name(primary)
+        if rec is not None:
+            logger.info("route=named_offer source=catalog offers=%s", offers)
+            return [_catalog_doc(catalog.format_offer(rec), rec.get("url", ""), "named")]
+        logger.info("route=named_offer source=faiss offers=%s", offers)
         page = _page_chunks_for_offer(vector_db, primary)        # whole page, all tiers
         if page:
             # Deterministic cheapest-first ordering in Python: tiers WITHIN each chunk

@@ -169,9 +169,11 @@ ROAMING_TRIGGERS = {
     "turquie": ["turquie"],
     "égypte": ["egypte"],
     "egypte": ["egypte"],
-    "maroc": ["maroc"],
-    "dubai": ["emirats", "dubai"],
-    "emirats": ["emirats", "dubai"],
+    # NOTE: Maroc, Dubai and Émirats are deliberately ABSENT — Djezzy does not sell
+    # roaming forfaits for them (verified on the public site, 2026-06-28). They used
+    # to be listed here and sent real questions to a dead-end roaming route with no
+    # matching page, which is what made the bot answer "rien" / hallucinate. The set
+    # below is exactly the destinations that exist (see data/roaming.json).
     # Arabic country names (a customer asking "عرض تاع مصر ?" = an Egypt ROAMING offer).
     # These only count as roaming when paired with a roaming/travel/offer cue (see
     # retriever._roaming_markers), so "ما هي عاصمة فرنسا؟" stays out-of-domain.
@@ -179,12 +181,9 @@ ROAMING_TRIGGERS = {
     "تونس": ["tunisie"],
     "فرنسا": ["france"],
     "تركيا": ["turquie"],
-    "المغرب": ["maroc"],
     "اسبانيا": ["espagne"],
     "إسبانيا": ["espagne"],
     "السعودية": ["hadj", "omra"],
-    "الإمارات": ["emirats", "dubai"],
-    "دبي": ["emirats", "dubai"],
 }
 # Generic roaming words that, combined with a travel cue, also mean roaming.
 ROAMING_GENERIC = ["roaming", "étranger", "etranger", "international"]

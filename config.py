@@ -29,6 +29,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 DATA_JSON = os.path.join(DATA_DIR, "djezzy_pages.json")   # scraped pages cache
+OFFERS_JSON = os.path.join(DATA_DIR, "offers.json")        # curated structured offers catalog
+ROAMING_JSON = os.path.join(DATA_DIR, "roaming.json")      # curated structured roaming catalog
 FAISS_DIR = os.path.join(DATA_DIR, "faiss_index")          # persisted vector store
 REFRESH_LOG = os.path.join(BASE_DIR, "refresh_log.txt")    # scheduler / refresh log
 LATENCY_STORE = os.path.join(BASE_DIR, "latency_store.json")  # accumulated timings

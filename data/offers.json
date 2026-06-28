@@ -1,0 +1,207 @@
+{
+  "_meta": {
+    "purpose": "Curated, structured catalog of Djezzy offers. Source of truth for the named / catalogue / budget / comparison routes, replacing brittle on-the-fly parsing of scraped pages.",
+    "source": "Extracted from data/djezzy_pages.json (the rendered scrape) and hand-curated to drop noise (page headers, credit/bonus amounts, mini add-ons, tariff lines).",
+    "verify_note": "Prices/tiers must be spot-checked against the PUBLIC djezzy.dz site/app. Records with \"verify\": true had messy source pages and need a closer look.",
+    "prices_in": "DA (Algerian dinar)"
+  },
+  "offers": [
+    {
+      "name": "Legend",
+      "slug": "legend",
+      "type": "prepaid",
+      "audience": "grand public, gros consommateurs de data",
+      "url": "https://www.djezzy.dz/particuliers/offres/djezzy-legend",
+      "summary": "Gamme prépayée haut de gamme de Djezzy, axée sur de gros volumes internet avec appels et SMS illimités.",
+      "tiers": [
+        {"price": 100, "details": "1 Go internet, appels illimités vers Djezzy, SMS illimités vers Djezzy, +300 DA de crédit, validité 24 heures"},
+        {"price": 1000, "details": "15 Go internet, appels illimités vers Djezzy, SMS illimités vers Djezzy, +2000 DA de crédit, validité 30 jours"},
+        {"price": 1500, "details": "45 Go internet, appels illimités vers Djezzy, SMS illimités vers Djezzy, +3000 DA de crédit, validité 30 jours"},
+        {"price": 2000, "details": "90 Go internet (NEW), appels illimités vers Djezzy, SMS illimités vers Djezzy, 350 min + 20 SMS vers les autres réseaux, validité 30 jours"},
+        {"price": 2000, "details": "70 Go internet, appels illimités vers tous les réseaux, SMS illimités vers Djezzy, 50 SMS vers les autres réseaux, validité 30 jours"},
+        {"price": 2500, "details": "120 Go internet, appels illimités vers tous les réseaux, SMS illimités vers Djezzy, 20 SMS vers les autres réseaux, validité 30 jours"},
+        {"price": 3000, "details": "145 Go internet, appels illimités vers tous les réseaux, SMS illimités vers Djezzy, 25 SMS vers les autres réseaux, validité 30 jours"},
+        {"price": 4000, "details": "200 Go internet, appels illimités vers tous les réseaux, SMS illimités vers Djezzy, 30 SMS vers les autres réseaux, validité 30 jours"}
+      ],
+      "notes": "Vérifié sur la page officielle (8 paliers, 100 → 4000 DA). Le palier 100 DA (1 Go / 24 h) EST un vrai forfait Legend. Deux forfaits distincts à 2000 DA : 90 Go (appels illimités vers Djezzy) et 70 Go (appels illimités vers tous les réseaux).",
+      "verify": false
+    },
+    {
+      "name": "Legend Max",
+      "slug": "legend-max",
+      "type": "postpaid",
+      "audience": "grand public, abonnement mensuel",
+      "url": "https://www.djezzy.dz/particuliers/offres/legend-max",
+      "summary": "Gamme postpayée (abonnement mensuel) avec appels illimités vers tous les réseaux et de gros volumes internet, un numéro spécial 0770 et des minutes/crédit vers l'international.",
+      "tiers": [
+        {"price": 1500, "details": "50 Go internet / mois, appels & SMS illimités vers Djezzy, appels & SMS vers le national et l'international inclus, un numéro 0770"},
+        {"price": 2000, "details": "70 Go internet / mois, appels illimités vers tous les réseaux nationaux, SMS illimités vers Djezzy, 100 SMS vers les autres réseaux, 200 DA vers l'international, un numéro 0770"},
+        {"price": 2000, "details": "80 Go internet / mois, appels & SMS illimités vers Djezzy, 15 min vers l'international, un numéro 0770"},
+        {"price": 2500, "details": "100 Go internet / mois, appels illimités vers tous les réseaux nationaux, SMS illimités vers Djezzy, 150 SMS vers les autres réseaux, 500 DA vers l'international, un numéro 0770"},
+        {"price": 3000, "details": "150 Go internet / mois, appels & SMS illimités vers Djezzy, 30 min vers l'international, un numéro 0770"}
+      ],
+      "notes": "Prix mensuels (« Pour X DA / Mois »), vérifiés sur captures officielles. Deux forfaits distincts à 2000 DA : 70 Go (carte premium) et 80 Go. Appels internationaux valables vers 10 destinations : France, Égypte, Allemagne, Portugal, Grèce, Suède, USA, Canada, Chine, Inde. SMS national hors forfait : 5 DA. Les montants 2000/4000/6000 DA dans le détail sont des VALEURS d'appels/crédit national, pas des prix.",
+      "verify": false
+    },
+    {
+      "name": "Legend Pro",
+      "slug": "legend-pro",
+      "type": "postpaid",
+      "audience": "entreprises / professionnels",
+      "url": "https://www.djezzy.dz/entreprises/offres/djezzy-legend-pro",
+      "summary": "Déclinaison professionnelle (entreprises) de Legend, avec appels illimités vers tous les réseaux nationaux et de gros volumes internet.",
+      "tiers": [
+        {"price": 2000, "details": "70 Go internet / mois, appels illimités vers tous les réseaux nationaux, SMS illimités vers Djezzy, 100 SMS vers les autres réseaux nationaux, 200 DA vers l'international & roaming"},
+        {"price": 2500, "details": "100 Go internet / mois, appels illimités vers tous les réseaux nationaux, SMS illimités vers Djezzy, 150 SMS vers les autres réseaux nationaux, 500 DA vers l'international & roaming"}
+      ],
+      "notes": "Prix mensuels (« Pour X DA / Mois »). Vérifié sur capture officielle.",
+      "verify": false
+    },
+    {
+      "name": "Campuce",
+      "slug": "campuce",
+      "type": "prepaid",
+      "audience": "étudiants",
+      "url": "https://www.djezzy.dz/particuliers/offres/offre-djezzy-campuce",
+      "summary": "Offre étudiante (Student Cam Puce) réservée aux étudiants munis d'une carte d'étudiant valide, avec de nombreux paliers du moins cher au plus cher.",
+      "eligibility": "Réservée aux étudiants disposant d'une carte d'étudiant valide.",
+      "tiers": [
+        {"price": 50, "details": "un numéro favori OU 60 min vers Djezzy, SMS illimités vers Djezzy, 10 min vers les autres réseaux"},
+        {"price": 100, "details": "1 Go internet, appels illimités vers Djezzy, SMS illimités vers Djezzy, +300 DA de crédit"},
+        {"price": 150, "details": "WhatsApp et Facebook illimités, appels illimités vers Djezzy, SMS illimités vers Djezzy"},
+        {"price": 400, "details": "5 Go internet, appels illimités vers Djezzy, SMS illimités vers Djezzy, +500 DA de crédit"},
+        {"price": 800, "details": "15 Go internet, appels illimités vers Djezzy, SMS illimités vers Djezzy, +2000 DA de crédit"},
+        {"price": 1200, "details": "40 Go internet, appels illimités vers Djezzy, SMS illimités vers Djezzy, +3000 DA de crédit"},
+        {"price": 1600, "details": "70 Go internet, appels illimités en national, SMS illimités vers Djezzy, 50 SMS vers les autres réseaux"}
+      ],
+      "notes": "Nom inventé (Campus + puce). 7 paliers réels — les petits prix (50/100/150 DA) sont de vrais paliers, pas du bruit.",
+      "verify": false
+    },
+    {
+      "name": "iZZY",
+      "slug": "izzy",
+      "type": "prepaid",
+      "audience": "jeunes / génération connectée",
+      "url": "https://www.djezzy.dz/particuliers/offres/izzy-game-changer",
+      "summary": "Marque prépayée pensée pour les jeunes : internet, appels et SMS illimités vers Djezzy, YouTube gratuit, communication en darija. Souscription via *720# ou l'application Djezzy.",
+      "activation": "Composer *720# ou via l'application Djezzy.",
+      "tiers": [
+        {"price": 50, "details": "1 Go internet, appels et SMS illimités vers Djezzy, validité 24 heures"},
+        {"price": 300, "details": "3 Go internet, appels et SMS illimités vers Djezzy, validité 15 jours, YouTube gratuit"},
+        {"price": 500, "details": "5 Go internet, appels et SMS illimités vers Djezzy, validité 30 jours, YouTube gratuit"},
+        {"price": 1200, "details": "10 Go internet, appels et SMS illimités vers Djezzy, +1000 DA de crédit, validité 30 jours, YouTube gratuit"}
+      ],
+      "extra_offers": [
+        {"name": "Extras ZID (iZZY)", "details": "Options à 400 DA chacune, à ajouter à un forfait iZZY : +800 DA de crédit, OU +7 Go d'internet, OU Facebook & Instagram gratuits, OU YouTube gratuit."}
+      ],
+      "notes": "Page très marketing / en darija. 4 paliers vérifiés (50/300/500/1200 DA). Extras ZID 400 DA déplacés dans extra_offers.",
+      "verify": false
+    },
+    {
+      "name": "Zid",
+      "slug": "zid",
+      "type": "prepaid",
+      "audience": "grand public, options internet",
+      "url": "https://www.djezzy.dz/particuliers/offres/djezzy-zid",
+      "summary": "Options internet prépayées Djezzy, du forfait journalier au forfait mensuel, internet illimité vers Djezzy avec crédit inclus.",
+      "tiers": [
+        {"price": 50, "details": "500 Mo internet, illimité vers Djezzy, +50 DA de crédit, validité 24 heures"},
+        {"price": 100, "details": "1 Go internet, illimité vers Djezzy, +150 DA de crédit, validité 24 heures"},
+        {"price": 200, "details": "2 Go internet, illimité vers Djezzy, +200 DA de crédit, validité 7 jours"},
+        {"price": 500, "details": "5 Go internet, illimité vers Djezzy, +500 DA de crédit, validité 30 jours"},
+        {"price": 1000, "details": "15 Go internet, illimité vers Djezzy, +2000 DA de crédit, validité 30 jours"},
+        {"price": 1500, "details": "40 Go internet, illimité vers Djezzy, +3000 DA de crédit, validité 30 jours"}
+      ],
+      "notes": "6 paliers vérifiés sur captures officielles : Jour (50/100 DA), Semaine (200 DA), Mois (500/1000/1500 DA).",
+      "verify": false
+    },
+    {
+      "name": "Confort",
+      "slug": "confort",
+      "type": "postpaid",
+      "audience": "grand public, abonnement mensuel + partage",
+      "url": "https://www.djezzy.dz/particuliers/offres/djezzy-confort-2",
+      "summary": "Gamme postpayée « Max d'internet » avec, en plus, une option « Confort Partage » : une 2e SIM pour partager son internet avec ses proches.",
+      "tiers": [
+        {"price": 1500, "details": "50 Go internet / mois, appels & SMS illimités vers Djezzy, appels & SMS vers le national et l'international inclus, un numéro 0770"},
+        {"price": 2000, "details": "80 Go internet / mois, appels & SMS illimités vers Djezzy, 15 min vers l'international, un numéro 0770"},
+        {"price": 3000, "details": "150 Go internet / mois, appels & SMS illimités vers Djezzy, 30 min vers l'international, un numéro 0770"}
+      ],
+      "extra_offers": [
+        {"name": "Confort Partage", "details": "2e SIM pour partager l'internet, selon le forfait Confort : avec Confort 1500 → Max 5 Go (50 DA/mois) ou Max 20 Go (150 DA/mois) ; avec Confort 2000 → Max 10 Go (50 DA/mois) ou Max 35 Go (150 DA/mois) ; avec Confort 3000 → Max 15 Go (50 DA/mois) ou Max 60 Go (150 DA/mois). SIM Confort Partage à 300 DA, en mode libre ou control."}
+      ],
+      "notes": "Prix mensuels, vérifiés sur captures officielles (3 forfaits : 1500/50 Go, 2000/80 Go, 3000/150 Go). Mêmes destinations internationales que Legend Max. Les montants 2000/4000/6000 DA dans le détail sont des valeurs d'appels national, pas des prix.",
+      "verify": false
+    },
+    {
+      "name": "3ayla",
+      "slug": "3ayla",
+      "type": "prepaid",
+      "audience": "famille / internet à la maison",
+      "url": "https://www.djezzy.dz/particuliers/offres/djezzy-3ayla",
+      "summary": "Packs internet « 3ayla » (famille) à grande validité, et packs avec modem 4G + SIM internet.",
+      "tiers": [
+        {"price": 1000, "details": "15 Go internet, validité 1 mois"},
+        {"price": 1500, "details": "50 Go internet, validité 1 mois"},
+        {"price": 2500, "details": "60 Go internet, validité 3 mois"},
+        {"price": 4000, "details": "150 Go internet, validité 6 mois"},
+        {"price": 7500, "details": "350 Go internet, validité 12 mois"},
+        {"price": 8500, "details": "15 Go internet + modem 4G + SIM internet, validité 1 mois"},
+        {"price": 9000, "details": "60 Go internet + modem 4G + SIM internet, validité 3 mois"},
+        {"price": 9990, "details": "150 Go internet + modem 4G + SIM internet, validité 6 mois"}
+      ],
+      "notes": "8 paliers vérifiés. Les 5 « forfaits » (1000 → 7500 DA) sont des packs internet seuls ; les 3 « packs » (8500/9000/9990 DA) incluent un modem 4G + SIM internet.",
+      "verify": false
+    },
+    {
+      "name": "Facebook Flex",
+      "slug": "facebook-flex",
+      "type": "service",
+      "audience": "grand public",
+      "url": "https://www.djezzy.dz/particuliers/offres/facebook-flex",
+      "summary": "Service gratuit : rester connecté à Facebook gratuitement, même sans crédit internet.",
+      "tiers": [],
+      "notes": "Service gratuit, pas de paliers de prix.",
+      "verify": false
+    },
+    {
+      "name": "Flexy",
+      "slug": "flexy",
+      "type": "service",
+      "audience": "grand public",
+      "url": "https://www.djezzy.dz",
+      "summary": "Service de rechargement et de transfert de crédit Djezzy (« Flexy ») : recharger sa ligne ou transférer du crédit vers un autre abonné.",
+      "tiers": [],
+      "notes": "Service de crédit, pas un forfait — aucun palier de prix fixe.",
+      "verify": false
+    },
+    {
+      "name": "Flexy Net",
+      "slug": "flexy-net",
+      "type": "service",
+      "audience": "grand public",
+      "url": "https://www.djezzy.dz/particuliers/offres/flexy-net",
+      "summary": "Service de transfert d'internet (FlexyNet) entre abonnés Djezzy. Des frais de transfert s'appliquent selon la validité.",
+      "tiers": [],
+      "fees": [
+        {"price": 30, "details": "frais de transfert (validité 24 heures)"},
+        {"price": 50, "details": "frais de transfert (validité 24 heures)"},
+        {"price": 70, "details": "frais de transfert (validité 48 heures)"}
+      ],
+      "notes": "Les montants 30/50/70 DA sont des FRAIS de transfert, pas des forfaits. Ne jamais les présenter comme des offres.",
+      "verify": false
+    },
+    {
+      "name": "Djezzy 5G",
+      "slug": "djezzy-5g",
+      "type": "info",
+      "audience": "grand public",
+      "url": "https://www.djezzy5g.dz",
+      "summary": "La 5G de Djezzy : internet ultra-rapide (jusqu'à 10× plus rapide que la 4G), latence très faible et connectivité massive (streaming Ultra HD, gaming, applications temps réel).",
+      "activation": "Activation en 1 clic via my.djezzy ou l'application Djezzy. Nécessite d'être dans une zone couverte par la 5G et un smartphone compatible 5G. Les forfaits 5G se choisissent ensuite dans l'application.",
+      "tiers": [],
+      "notes": "AUCUN prix n'est publié sur la page 5G — c'est une page d'information. Le bot doit présenter les avantages et la procédure d'activation, et orienter vers l'application pour les forfaits, SANS JAMAIS inventer de prix.",
+      "verify": false
+    }
+  ]
+}

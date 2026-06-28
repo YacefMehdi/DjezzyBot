@@ -8,6 +8,17 @@ venv/
 # FAISS index (rebuilt from data/djezzy_pages.json)
 data/faiss_index/
 
+# Scrape backups / partial scrapes / extractor drafts (never commit)
+*.backup_*.json
+*scrape_incomplete*
+*.generated.json
+
+# Academic records — kept LOCAL only, not pushed (Colab repo stays lean)
+Mémoire Master/
+Mémoire_Master/
+Presentation_Defense/
+docs/
+
 # Runtime artifacts
 latency_store.json
 refresh_log.txt
