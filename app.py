@@ -16,6 +16,7 @@ Run:  python app.py
 """
 
 import logging
+import os
 import traceback
 
 import config
@@ -81,39 +82,57 @@ def _status_text() -> str:
 # Callbacks
 # ---------------------------------------------------------------------------
 def _history_to_messages(chat_history):
-    """Convert Gradio 'messages' history to the bot's role/content list."""
+    """Convert Gradio 'messages' history to the bot's role/content list.
+
+    Audio bubbles (content is a {"path": ...} dict for the recorded question or the
+    spoken answer) are SKIPPED — only the text turns are sent to the LLM, so the
+    embedded media never pollutes the prompt.
+    """
     msgs = []
     for m in chat_history or []:
-        if isinstance(m, dict) and m.get("role") in ("user", "assistant"):
+        if (isinstance(m, dict) and m.get("role") in ("user", "assistant")
+                and isinstance(m.get("content"), str) and m["content"].strip()):
             msgs.append({"role": m["role"], "content": m["content"]})
     return msgs
 
 
-def on_text_send(message, chat_history, speak):
-    """Answer a typed message and append it to the shared conversation.
+def add_user_text(message, chat_history):
+    """Phase 1 (instant): echo the typed message into the chat and clear the box.
 
-    Text questions stay text-only by default; if `speak` (the 'read aloud' toggle)
-    is on, the reply is also synthesized so a typed question can be heard too.
-    Returns (chat, cleared-textbox, spoken-reply-wav-or-None).
+    Split from the generation step so the user SEES their question and an empty
+    textbox immediately, instead of waiting for the whole answer before anything
+    appears. Returns (chat, cleared-textbox).
     """
     chat_history = chat_history or []
-    if not message or not message.strip():
-        return chat_history, "", None
+    if message and message.strip():
+        chat_history = chat_history + [{"role": "user", "content": message}]
+    return chat_history, ""
+
+
+def reply_text(chat_history, speak):
+    """Phase 2 (slow): answer the last user message already shown in the chat.
+
+    If `speak` (the 'read aloud' toggle) is on, the reply is also synthesized — and
+    appended as a playable audio bubble so it STAYS in the conversation and can be
+    replayed later, not just auto-played once. Returns (chat, spoken-reply wav).
+    """
+    chat_history = chat_history or []
+    if not chat_history or chat_history[-1].get("role") != "user":
+        return chat_history, None
+    message = chat_history[-1].get("content")
+    if not isinstance(message, str) or not message.strip():
+        return chat_history, None
     if STATE["index"] is None:
-        chat_history += [
-            {"role": "user", "content": message},
-            {"role": "assistant", "content": "⚠️ La base n'est pas encore indexée. "
-                                             "Cliquez sur « Rafraîchir »."},
-        ]
-        return chat_history, "", None
-    prior = _history_to_messages(chat_history)
+        return chat_history + [{"role": "assistant",
+                                "content": "⚠️ La base n'est pas encore indexée. "
+                                           "Cliquez sur « Rafraîchir »."}], None
+    prior = _history_to_messages(chat_history[:-1])     # everything before this question
     result = bot.answer(message, STATE["index"], prior)
-    chat_history += [
-        {"role": "user", "content": message},
-        {"role": "assistant", "content": result["text"]},
-    ]
+    chat_history = chat_history + [{"role": "assistant", "content": result["text"]}]
     wav = voice.synthesize(result["text"], result["lang"]) if speak else None
-    return chat_history, "", wav
+    if wav:
+        chat_history = chat_history + [{"role": "assistant", "content": {"path": wav}}]
+    return chat_history, wav
 
 
 def on_clear():
@@ -134,15 +153,17 @@ def on_refresh():
 def on_voice(audio_path, chat_history):
     """Transcribe speech → answer → speak, into the SAME shared conversation.
 
-    The transcription becomes the user's message (prefixed 🎙️) and the reply is
-    both shown in the chat and played back as audio, so voice and text share one
-    history. Returns (updated chat, spoken-reply wav path).
+    Both audios STAY in the chat as playable bubbles: the recording you sent (so you
+    can hear what you said) and the spoken answer (so you can replay any past reply,
+    not just the latest). The transcription is shown as text under your recording.
+    Returns (updated chat, spoken-reply wav path) — the wav also auto-plays once.
     """
     chat_history = chat_history or []
     if audio_path is None:
         return chat_history, None
     if STATE["index"] is None:
-        chat_history += [{"role": "assistant",
+        chat_history += [{"role": "user", "content": {"path": audio_path}},
+                         {"role": "assistant",
                           "content": "⚠️ La base n'est pas encore indexée. "
                                      "Cliquez sur « Rafraîchir »."}]
         return chat_history, None
@@ -156,12 +177,15 @@ def on_voice(audio_path, chat_history):
         logging.getLogger("djezzybot.app").exception("voice path failed")
         tb = traceback.format_exc().strip().splitlines()
         where = tb[-1] if tb else f"{type(e).__name__}: {e}"
-        chat_history += [{"role": "assistant",
+        chat_history += [{"role": "user", "content": {"path": audio_path}},
+                         {"role": "assistant",
                           "content": f"⚠️ Erreur vocale — {where}"}]
         return chat_history, None
     chat_history += [
+        {"role": "user", "content": {"path": audio_path}},          # your recording (replayable)
         {"role": "user", "content": f"🎙️ {result['transcription']}"},
         {"role": "assistant", "content": result["text"]},
+        {"role": "assistant", "content": {"path": result["wav_path"]}},  # spoken reply (replayable)
     ]
     return chat_history, result["wav_path"]
 
@@ -207,18 +231,22 @@ def build_ui():
         status = gr.Markdown(_status_text(), elem_classes=["djezzy-status"])
 
         # One shared conversation for BOTH text and voice → a single history.
-        chatbot = gr.Chatbot(type="messages", height=440, label="Conversation")
+        # Tall so the conversation fills the screen instead of a cramped scroller.
+        chatbot = gr.Chatbot(type="messages", height=600, label="Conversation",
+                             show_copy_button=True)
 
         with gr.Row():
             txt = gr.Textbox(
                 placeholder="Écrivez votre question…  (ou parlez avec le micro ci-dessous)",
-                scale=8, show_label=False, autofocus=True)
-            send_btn = gr.Button("Envoyer", variant="primary", scale=1)
+                scale=7, show_label=False, autofocus=True)
+            send_btn = gr.Button("Envoyer", variant="primary", scale=1, min_width=110)
+            stop_btn = gr.Button("⏹️ Stop", variant="stop", scale=1, min_width=90)
 
         with gr.Row():
             mic = gr.Audio(sources=["microphone"], type="filepath",
                            label="🎙️ Parler à DjezzyBot", scale=2)
-            voice_out = gr.Audio(label="🔊 Réponse vocale", autoplay=True, scale=1)
+            voice_out = gr.Audio(label="🔊 Réponse vocale (dernière)",
+                                 autoplay=True, scale=1)
 
         with gr.Row():
             clear_btn = gr.Button("🗑️ Effacer")
@@ -227,10 +255,17 @@ def build_ui():
                                     value=False)
 
         # ---- wiring : text AND voice feed the SAME chatbot ----------------
-        # Voice always speaks back; typed answers speak only when the toggle is on.
-        send_btn.click(on_text_send, [txt, chatbot, speak_chk], [chatbot, txt, voice_out])
-        txt.submit(on_text_send, [txt, chatbot, speak_chk], [chatbot, txt, voice_out])
-        mic.stop_recording(on_voice, [mic, chatbot], [chatbot, voice_out])
+        # Text is TWO phases: add_user_text echoes the question instantly + clears the
+        # box, then reply_text generates. Voice always speaks back; typed answers speak
+        # only when the toggle is on. Every long-running event is captured so the Stop
+        # button can cancel it.
+        send_evt = send_btn.click(add_user_text, [txt, chatbot], [chatbot, txt]) \
+            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out])
+        submit_evt = txt.submit(add_user_text, [txt, chatbot], [chatbot, txt]) \
+            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out])
+        voice_evt = mic.stop_recording(on_voice, [mic, chatbot], [chatbot, voice_out])
+
+        stop_btn.click(None, None, None, cancels=[send_evt, submit_evt, voice_evt])
         clear_btn.click(on_clear, None, [chatbot, txt, voice_out])
         refresh_btn.click(on_refresh, None, status)
 
@@ -240,7 +275,11 @@ def build_ui():
 def main():
     boot()
     demo = build_ui()
-    demo.queue(default_concurrency_limit=1).launch(share=config.GRADIO_SHARE)
+    # allowed_paths: let Gradio serve the saved TTS wavs so spoken-answer bubbles stay
+    # replayable later in the conversation (mic recordings live in Gradio's own cache).
+    os.makedirs(voice._tts_dir, exist_ok=True)   # exist before launch references it
+    demo.queue(default_concurrency_limit=1).launch(
+        share=config.GRADIO_SHARE, allowed_paths=[voice._tts_dir])
 
 
 if __name__ == "__main__":
