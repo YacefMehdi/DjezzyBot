@@ -267,8 +267,14 @@ _STYLE_DIRECTIVE = {
         "de la moins chère à la plus chère."
     ),
     "budget": (
-        "Liste les offres éligibles, UNE par ligne, de la moins chère à la plus chère, "
-        "chacune avec son prix et ses détails essentiels."
+        "Le client indique un budget. Le contexte contient PLUSIEURS offres éligibles "
+        "(souvent 3 à 5) : tu DOIS les présenter TOUTES, jamais une seule. Pour CHAQUE "
+        "offre du contexte, donne son nom puis, parmi ses paliers au prix inférieur ou "
+        "égal au budget, mets en avant le palier le PLUS AVANTAGEUX (le plus cher que le "
+        "budget permet, donc le plus de Go) avec son prix et ses détails essentiels. "
+        "Classe les offres de la moins chère à la plus chère, UNE par ligne. NE DIS "
+        "JAMAIS qu'il n'existe qu'une seule option tant que le contexte en contient "
+        "plusieurs, et n'oublie aucune offre présente dans le contexte."
     ),
     "roaming": (
         "Donne les tarifs/forfaits roaming (à l'étranger) demandés, avec leur prix ; ne les "
