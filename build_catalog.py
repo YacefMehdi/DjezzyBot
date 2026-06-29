@@ -11,16 +11,17 @@ WHY
     vs "2000 DA" layouts and the crédit/mini-option contamination far better than regex).
 
     Production flow (daily):  scrape -> djezzy_pages.json -> build_catalog.py -> offers.json
-    Validation flow (now):    run with a bigger open Qwen, write *.generated.json, then
-                              score_catalog.py diffs it against the hand-verified GOLD.
+    Validation flow (now):    run, write *.generated.json, then score_catalog.py diffs it
+                              against the hand-verified GOLD.
 
-MODEL-AGNOSTIC
-    Talks to any OpenAI-compatible /chat/completions endpoint (Groq, Together, OpenRouter,
-    local Ollama/vLLM) via three env vars — NO closed model required, so the open-source
-    brief stays intact:
-        LLM_API_BASE   e.g. https://api.groq.com/openai/v1
-        LLM_API_KEY    your key
-        LLM_MODEL      e.g. qwen-2.5-32b   (a bigger open Qwen, same family as the 7B)
+TWO BACKENDS (LLM_BACKEND env)
+    "local" (DEFAULT): the SAME Qwen-7B the bot already loads, in-process — NO key, no
+        network. First validation: does the extraction method work with the shipped model?
+        Run it from the notebook kernel that has the bot loaded so it reuses that one model.
+    "api": any OpenAI-compatible /chat/completions endpoint (Groq, Together, OpenRouter,
+        Ollama/vLLM) — for the LATER test on a BIGGER open Qwen. Still open-source only:
+            LLM_BACKEND=api  LLM_API_BASE=https://api.groq.com/openai/v1
+            LLM_API_KEY=...  LLM_MODEL=qwen-2.5-32b   (bigger open Qwen, same family)
 
 DESIGN / GUARDRAILS (fully automatic, no human gate)
     * The current catalog is the REGISTRY of offers to maintain (name/slug/url/type). The
@@ -51,7 +52,17 @@ from datetime import datetime
 import config
 from data import lexicon
 
-# --- API config (OpenAI-compatible) ---------------------------------------
+# --- Backend selection -----------------------------------------------------
+# "local" (default): use the SAME Qwen-7B the bot already loads, in-process on Colab —
+#   no API key, no network. This is the first validation: does the extraction METHOD work
+#   with the model we actually ship? Run it in the notebook kernel that has the bot loaded
+#   (import build_catalog; build_catalog.main()) so it reuses the one model — NOT as a
+#   subprocess, which would load a second 7B and OOM the T4.
+# "api": talk to any OpenAI-compatible endpoint (Groq/Together/…), for the LATER test on a
+#   BIGGER open Qwen. Set LLM_BACKEND=api + LLM_API_KEY + LLM_MODEL.
+BACKEND = os.environ.get("LLM_BACKEND", "local").lower()
+
+# --- API config (only used when BACKEND == "api") --------------------------
 API_BASE = os.environ.get("LLM_API_BASE", "https://api.groq.com/openai/v1").rstrip("/")
 API_KEY = os.environ.get("LLM_API_KEY", "")
 MODEL = os.environ.get("LLM_MODEL", "qwen-2.5-32b")
@@ -62,16 +73,34 @@ PRICE_MIN, PRICE_MAX = 20, 60000
 
 
 # ===========================================================================
-# LLM call (stdlib only — no requests dependency)
+# LLM call — local (in-process Qwen-7B) or api (OpenAI-compatible), same JSON contract
 # ===========================================================================
-def llm_json(system: str, user: str, retries: int = 3) -> dict:
-    """POST a chat completion and return the parsed JSON object the model emits.
+def _parse_json(text: str) -> dict:
+    """Pull the JSON object out of a model reply (strips ```json fences / stray prose)."""
+    text = re.sub(r"^```(?:json)?|```$", "", (text or "").strip(), flags=re.MULTILINE).strip()
+    m = re.search(r"\{.*\}", text, re.DOTALL)   # outermost {...} even if wrapped in a sentence
+    return json.loads(m.group(0) if m else text)
 
-    Strips ```json fences that open models often wrap around the JSON. Raises on
-    transport/parse failure after `retries` attempts so the caller can keep-last-good.
+
+def _llm_local(system: str, user: str, max_new_tokens: int = 1024) -> str:
+    """Generate with the bot's already-loaded Qwen-7B (same model, tokenizer, decode guard).
+
+    Reuses bot.load_llm()'s cached model, so calling this from the notebook kernel that ran
+    the bot does NOT spin up a second 7B. Applies Qwen's chat template exactly like the bot.
     """
+    import bot
+    _, tok = bot.load_llm()
+    prompt = tok.apply_chat_template(
+        [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        tokenize=False, add_generation_prompt=True,
+    )
+    return bot._generate_n(prompt, max_new_tokens)
+
+
+def _llm_api(system: str, user: str, retries: int = 3) -> str:
+    """POST a chat completion to the OpenAI-compatible endpoint; return the raw text."""
     if not API_KEY:
-        raise RuntimeError("LLM_API_KEY is not set — export it before running.")
+        raise RuntimeError("LLM_API_KEY is not set — export it before running (BACKEND=api).")
     payload = json.dumps({
         "model": MODEL,
         "temperature": 0,
@@ -90,15 +119,21 @@ def llm_json(system: str, user: str, retries: int = 3) -> dict:
         try:
             with urllib.request.urlopen(req, timeout=90) as resp:
                 body = json.loads(resp.read().decode("utf-8"))
-            text = body["choices"][0]["message"]["content"].strip()
-            text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
-            # grab the outermost JSON object even if the model adds a sentence around it
-            m = re.search(r"\{.*\}", text, re.DOTALL)
-            return json.loads(m.group(0) if m else text)
-        except (urllib.error.URLError, KeyError, ValueError, json.JSONDecodeError) as e:
+            return body["choices"][0]["message"]["content"]
+        except (urllib.error.URLError, KeyError, ValueError) as e:
             last = e
             time.sleep(1.5 * (attempt + 1))
-    raise RuntimeError(f"LLM call failed after {retries} tries: {last}")
+    raise RuntimeError(f"API call failed after {retries} tries: {last}")
+
+
+def llm_json(system: str, user: str) -> dict:
+    """Return the parsed JSON object the model emits, via whichever backend is selected.
+
+    Local Qwen-7B is greedy/deterministic, so a parse failure won't change on retry —
+    one shot, then the caller keep-last-good's. The api path already retries transport.
+    """
+    text = _llm_local(system, user) if BACKEND == "local" else _llm_api(system, user)
+    return _parse_json(text)
 
 
 # ===========================================================================
@@ -266,7 +301,10 @@ def _write(obj: dict, live_path: str, apply: bool, suffix: str):
 
 def main():
     apply = "--apply" in sys.argv
-    print(f"Model: {MODEL} via {API_BASE}   (apply={apply})")
+    if BACKEND == "local":
+        print(f"Backend: local in-process model ({config.LLM_MODEL_ID})   (apply={apply})")
+    else:
+        print(f"Backend: api  Model: {MODEL} via {API_BASE}   (apply={apply})")
     _backup_gold()                       # snapshot gold first — a run can never lose it
     pages_by_url = _index_pages()
 

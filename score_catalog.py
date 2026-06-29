@@ -88,8 +88,8 @@ def main():
         print("roaming.generated.json not found — run build_catalog.py first.")
         ok = False
     print("\n" + ("PASS — extractor matches gold." if ok else "REVIEW — see diffs above."))
-    sys.exit(0 if ok else 1)
+    return ok
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(0 if main() else 1)
