@@ -71,6 +71,20 @@ MODEL = os.environ.get("LLM_MODEL", "qwen-2.5-32b")
 # a parsing artifact (crédit amount, phone price, typo) and is rejected.
 PRICE_MIN, PRICE_MAX = 20, 60000
 
+# Real tiers live in the first chunk of a page, but the 6000-char cap was sometimes cutting
+# off the most-expensive / last tier (a cause of the recall slips). Both Qwen-7B and 32B have
+# ample context, so feed more of the page.
+PAGE_CHARS = 12000
+
+# A genuine tier always DESCRIBES its content (data volume / calls / validity). A bare price
+# with no described plan is noise — an activation/recharge/crédit amount or a promo line. We
+# reject such "tiers" even if the model emits them, which is model-independent insurance
+# against the phantom-price failure (Legend Pro 100/150, Campuce 300/2000/3000, iZZY 800/1000).
+_TIER_CONTENT_RE = re.compile(
+    r"\d+\s*(?:go|mo|gb|mb)|appel|\bmin\b|sms|illimit|jour|semaine|mois|validit|heure|24h|/h",
+    re.IGNORECASE,
+)
+
 
 # ===========================================================================
 # LLM call — local (in-process Qwen-7B) or api (OpenAI-compatible), same JSON contract
@@ -144,18 +158,41 @@ _OFFER_SYSTEM = (
     "BRUT d'une page d'offre (souvent mal structuré). Tu renvoies UNIQUEMENT un objet JSON "
     "valide, sans texte autour, au format :\n"
     '{ "tiers": [ {"price": <entier DA>, "details": "<volume Go, appels, SMS, validité>"} ] }\n'
-    "RÈGLES STRICTES :\n"
-    "- Un 'tier' est un FORFAIT réel qu'on peut acheter (un prix d'abonnement).\n"
-    "- N'inclus JAMAIS comme prix : les montants de crédit/bonus ('+2000 DA de crédit'), "
-    "les tarifs à l'unité ('5 DA/SMS', '4,99 DA/Mo'), les frais de SIM, les valeurs "
-    "d'appels ('4000 DA vers le national').\n"
-    "- Garde les deux forfaits s'ils ont le même prix mais des volumes différents.\n"
-    "- N'invente RIEN. Si un champ est absent, ne le mets pas. Si aucun forfait n'est "
-    'présent, renvoie {"tiers": []}.\n'
-    "Exemple (Djezzy Legend) -> "
+    "\n"
+    "DÉFINITION D'UN PALIER (tier) — un FORFAIT réel qu'on achète :\n"
+    "- N'émets un palier QUE si la page DÉCRIT son contenu : au minimum un volume de données "
+    "(Go/Mo) OU des appels/minutes, avec sa validité. Le couple prix + contenu doit être "
+    "explicitement présent dans le texte.\n"
+    "- Un PRIX SEUL, sans contenu de forfait décrit à côté, n'est PAS un palier : ignore-le "
+    "(c'est un montant de recharge, d'activation, une promo ou un crédit). Exemple : « rechargez "
+    "dès 100 DA » n'est PAS un palier ; « 100 DA : 1 Go + appels illimités, validité 24h » en "
+    "est un.\n"
+    "\n"
+    "EXHAUSTIVITÉ — n'oublie aucun palier :\n"
+    "- Extrais TOUS les paliers de la page, du MOINS cher au PLUS cher. Ne t'arrête pas après "
+    "les premiers ; n'oublie ni le moins cher ni le plus cher. Une gamme a souvent plusieurs "
+    "paliers (parfois 2, parfois 8).\n"
+    "- Si DEUX paliers ont le MÊME prix mais un contenu DIFFÉRENT (ex. deux forfaits à 2000 DA, "
+    "l'un 90 Go l'autre 70 Go), garde-les TOUS LES DEUX comme deux entrées distinctes — ne les "
+    "fusionne JAMAIS en un seul.\n"
+    "\n"
+    "À NE JAMAIS COMPTER COMME PRIX D'UN PALIER :\n"
+    "- les montants de crédit/bonus offerts ('+2000 DA de crédit', 'bonus 500 DA') → ils vont "
+    "DANS le champ details du palier concerné, jamais comme un palier séparé ;\n"
+    "- les tarifs à l'unité ('5 DA/SMS', '4,99 DA/Mo', 'appel à 4 DA/min') ;\n"
+    "- les frais de SIM, de transfert ou d'activation ;\n"
+    "- les valeurs d'appels exprimées en DA ('4000 DA vers le national').\n"
+    "\n"
+    "N'INVENTE RIEN : ne déduis aucun prix, ne complète pas une gamme par des paliers supposés, "
+    "ne recopie pas un exemple. Si un champ est absent, ne le mets pas. Si aucun forfait décrit "
+    'n\'est présent, renvoie {"tiers": []}.\n'
+    "\n"
+    "Exemple de FORMAT (Djezzy Legend — montre un petit palier réel ET deux paliers au même "
+    "prix) -> "
     '{"tiers":[{"price":100,"details":"1 Go internet, appels illimités vers Djezzy, '
-    '+300 DA de crédit, validité 24h"},{"price":1000,"details":"15 Go internet, '
-    'appels illimités vers Djezzy, validité 30 jours"}]}'
+    '+300 DA de crédit, validité 24h"},{"price":2000,"details":"90 Go internet, appels '
+    'illimités, validité 30 jours"},{"price":2000,"details":"70 Go internet + 350 min hors '
+    'réseau, validité 30 jours"}]}'
 )
 
 _ROAMING_SYSTEM = (
@@ -178,7 +215,9 @@ _ROAMING_SYSTEM = (
 def _valid_tier(t) -> bool:
     return (isinstance(t, dict) and isinstance(t.get("price"), int)
             and PRICE_MIN <= t["price"] <= PRICE_MAX
-            and isinstance(t.get("details"), str) and t["details"].strip())
+            and isinstance(t.get("details"), str) and t["details"].strip()
+            # a real tier describes its content; a bare price is noise -> reject it
+            and _TIER_CONTENT_RE.search(t["details"]) is not None)
 
 
 def _clean_tiers(raw) -> list:
@@ -227,7 +266,7 @@ def build_offers(pages_by_url: dict) -> tuple:
             failed += 1
             continue
         try:
-            data = llm_json(_OFFER_SYSTEM, page["content"][:6000])
+            data = llm_json(_OFFER_SYSTEM, page["content"][:PAGE_CHARS])
             tiers = _clean_tiers(data.get("tiers"))
             if tiers and _name_ok(rec["name"]):
                 rec["tiers"] = tiers
@@ -255,7 +294,7 @@ def build_roaming(pages_by_url: dict) -> tuple:
             failed += 1
             continue
         try:
-            data = llm_json(_ROAMING_SYSTEM, page["content"][:6000])
+            data = llm_json(_ROAMING_SYSTEM, page["content"][:PAGE_CHARS])
             mixte = _clean_tiers(data.get("mixte"))
             internet = _clean_tiers(data.get("internet"))
             if mixte or internet:
