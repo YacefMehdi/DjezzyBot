@@ -71,10 +71,11 @@ MODEL = os.environ.get("LLM_MODEL", "qwen-2.5-32b")
 # a parsing artifact (crédit amount, phone price, typo) and is rejected.
 PRICE_MIN, PRICE_MAX = 20, 60000
 
-# Real tiers live in the first chunk of a page, but the 6000-char cap was sometimes cutting
-# off the most-expensive / last tier (a cause of the recall slips). Both Qwen-7B and 32B have
-# ample context, so feed more of the page.
-PAGE_CHARS = 12000
+# How much of a page's text to feed the extractor. Kept deliberately TIGHT: an offer's real
+# tiers sit at the top of its page, and feeding more (we tried 12000) pulled in OTHER sections
+# --- comparison blocks, related-offer amounts --- that the model then mistook for this offer's
+# tiers, adding phantom prices (Confort/Zid gained 2000/4000/6000). Less context = less noise.
+PAGE_CHARS = 6000
 
 # A genuine tier always DESCRIBES its content (data volume / calls / validity). A bare price
 # with no described plan is noise — an activation/recharge/crédit amount or a promo line. We
