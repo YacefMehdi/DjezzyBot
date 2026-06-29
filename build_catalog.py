@@ -307,6 +307,7 @@ def main():
         print(f"Backend: api  Model: {MODEL} via {API_BASE}   (apply={apply})")
     _backup_gold()                       # snapshot gold first — a run can never lose it
     pages_by_url = _index_pages()
+    t0 = time.time()                     # wall-clock of the actual extraction work
 
     print("\n=== OFFERS ===")
     offers, ostat = build_offers(pages_by_url)
@@ -316,8 +317,12 @@ def main():
     roaming, rstat = build_roaming(pages_by_url)
     _write(roaming, config.ROAMING_JSON, apply, ".generated.json")
 
+    elapsed = time.time() - t0
     print(f"\nOffers : {ostat}")
     print(f"Roaming: {rstat}")
+    print(f"Extraction time: {elapsed:.0f}s ({elapsed/60:.1f} min) "
+          f"for {ostat['rebuilt'] + rstat['rebuilt']} rebuilt / "
+          f"{ostat['kept'] + rstat['kept']} kept records")
     print("Done." if apply else "Draft written. Run score_catalog.py to compare vs gold.")
 
 
