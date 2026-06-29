@@ -198,6 +198,9 @@ BUDGET_TRIGGERS = [
     # French
     "j'ai", "j ai", "budget", "moins de", "max", "maximum", "pas plus",
     "seulement", "avec juste", "moins cher", "jusqu'à", "jusqu a",
+    # "offres pour 1000 DA" / "un forfait pour 2000 DA" — only fires WITH an amount
+    # (a DA value is required), so "offre pour étudiant" stays non-budget.
+    "pour",
     # existence framing ("is there something for X DA")
     "est-ce que", "est ce que", "y a-t-il", "y a t il", "avez-vous", "existe",
     # Darija (romanized)
