@@ -41,10 +41,12 @@ Run:
 import json
 import os
 import re
+import shutil
 import sys
 import time
 import urllib.request
 import urllib.error
+from datetime import datetime
 
 import config
 from data import lexicon
@@ -236,6 +238,25 @@ def build_roaming(pages_by_url: dict) -> tuple:
     return gold, {"rebuilt": rebuilt, "kept": kept, "failed": failed}
 
 
+def _backup_gold() -> str:
+    """Copy the live gold catalogs to data/backups/<timestamp>/ BEFORE anything runs.
+
+    The user's main fear is that a bad extractor run silently corrupts the hand-verified
+    offers.json / roaming.json. This makes that impossible to lose: every invocation —
+    draft OR --apply — first snapshots the current gold to a timestamped folder, so the
+    exact pre-run catalogs can always be restored (just copy them back over). Returns the
+    backup directory path.
+    """
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    bdir = os.path.join(config.DATA_DIR, "backups", stamp)
+    os.makedirs(bdir, exist_ok=True)
+    for p in (config.OFFERS_JSON, config.ROAMING_JSON):
+        if os.path.exists(p):
+            shutil.copy2(p, os.path.join(bdir, os.path.basename(p)))
+    print(f"  backup of current gold catalogs -> {bdir}")
+    return bdir
+
+
 def _write(obj: dict, live_path: str, apply: bool, suffix: str):
     out = live_path if apply else live_path.replace(".json", suffix)
     with open(out, "w", encoding="utf-8") as f:
@@ -246,6 +267,7 @@ def _write(obj: dict, live_path: str, apply: bool, suffix: str):
 def main():
     apply = "--apply" in sys.argv
     print(f"Model: {MODEL} via {API_BASE}   (apply={apply})")
+    _backup_gold()                       # snapshot gold first — a run can never lose it
     pages_by_url = _index_pages()
 
     print("\n=== OFFERS ===")

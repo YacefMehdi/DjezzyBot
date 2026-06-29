@@ -179,6 +179,17 @@ _TTS_BRAND_AR = {
     "pro": "برو", "control": "كنترول", "djezzy5g": "جيزي فايف جي",
 }
 
+# fr/en: brand/offer names XTTS otherwise SPELLS OUT letter-by-letter because of their
+# studded / all-caps shape ("iZZY" -> "i-z-z-y", "Flexy" sometimes "f-l-e-x-y"). Rewrite
+# each to a plain Title-case word the voice reads as one token. Longer names first so
+# "Legend Max" wins over "Legend", "Flexy Net" over "Flexy". (ar/dz use _TTS_BRAND_AR.)
+_TTS_BRAND_LATIN = {
+    "legend max": "Legend Max", "legend pro": "Legend Pro", "legend": "Legend",
+    "flexy net": "Flexy Net", "flexy": "Flexy", "izzy": "Izzy", "campuce": "Campuce",
+    "confort": "Confort", "zid": "Zid", "djezzy": "Djezzy",
+    "mobilis": "Mobilis", "ooredoo": "Ooredoo",
+}
+
 
 def _expand_for_tts(text: str, lang: str) -> str:
     """Turn written telecom text into naturally SPEAKABLE text (one layer, by class).
@@ -194,6 +205,26 @@ def _expand_for_tts(text: str, lang: str) -> str:
     from num2words import num2words
 
     nlang = _TTS_NUM_LANG.get(lang, "fr")
+
+    # 0) strip things that must never be SPOKEN. A read-out URL is the worst offender for
+    # the "reads dots badly" complaint — "djezzy.dz" becomes "djezzy POINT dz", a link
+    # "https://..." becomes a stream of letters and dots. The customer sees these in the
+    # chat bubble anyway, so drop the page/source footers, bare links and bare domains.
+    text = re.sub(r"(?im)^\s*(?:page|lien|source|url|site)\s*[:：].*$", "", text)
+    text = re.sub(r"https?://\S+|\bwww\.\S+", "", text)
+    text = re.sub(r"\b[\w-]+\.(?:dz|com|net|org|fr)\b", "", text)
+    # collapse leftover stray dots that would be read as "point"/"dot": a dot directly
+    # before a letter (acronym / domain residue the regexes above missed, e.g. "S.A.V").
+    # A dot BETWEEN digits ("1.5 Go") is a real decimal and is kept so it reads naturally.
+    text = re.sub(r"\.(?=[a-zàâçéèêëîïôûùüÿñ])", " ", text, flags=re.IGNORECASE)
+
+    # 0b) fr/en: say brand/offer names as words instead of spelling their studded caps.
+    # "5G"/"4G" -> "5 G" so the digit is spoken and G stays a single letter. ar/dz brands
+    # are handled in step 6 (after number expansion, before the Latin-script strip).
+    if lang not in ("ar", "dz"):
+        text = re.sub(r"\b([2-5])\s*G\b", r"\1 G", text)
+        for k, v in _TTS_BRAND_LATIN.items():
+            text = re.sub(rf"\b{re.escape(k)}\b", v, text, flags=re.IGNORECASE)
 
     # 1) collapse "1 000" / "3 000" style separators BEFORE word conversion
     text = re.sub(r"(?<=\d)\s+(?=\d{3}\b)", "", text)
