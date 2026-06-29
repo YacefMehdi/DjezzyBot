@@ -127,49 +127,36 @@ def _history_to_messages(chat_history):
     return msgs
 
 
-def add_user_text(message, chat_history):
-    """Phase 1 (instant): echo the typed message into the chat and clear the box.
+def submit_text(message, chat_history, speak):
+    """Handle a typed question end-to-end in ONE event (generator).
 
-    Split from the generation step so the user SEES their question and an empty
-    textbox immediately, instead of waiting for the whole answer before anything
-    appears. Returns (chat, cleared-textbox).
+    The first yield is INSTANT and does three things in a single round-trip: echo the
+    question, clear the textbox, and show the "✍️ rédige…" bubble. The old design split
+    this into two chained events (add_user_text → reply_text), so the typing indicator
+    only appeared after a SECOND queue hop — the visible <1s lag the user reported. One
+    generator removes that hop. Later yields replace the typing bubble with the real
+    answer (and, if `speak` is on, a playable spoken-reply bubble that stays in the chat).
+    Yields (chat, textbox, spoken-reply wav).
     """
     chat_history = chat_history or []
-    if message and message.strip():
-        chat_history = chat_history + [{"role": "user", "content": _with_ts(message)}]
-    return chat_history, ""
-
-
-def reply_text(chat_history, speak):
-    """Phase 2 (slow): answer the last user message already shown in the chat.
-
-    A GENERATOR: it first yields a transient "typing…" bubble (so the screen isn't
-    frozen during the long generation now that the queue spinner is hidden), then
-    yields the real answer. If `speak` is on, the reply is also synthesized and
-    appended as a playable audio bubble so it STAYS in the conversation. Yields
-    (chat, spoken-reply wav).
-    """
-    chat_history = chat_history or []
-    if not chat_history or chat_history[-1].get("role") != "user":
-        yield chat_history, None
+    if not message or not message.strip():
+        yield chat_history, "", None
         return
-    message = _strip_ts(chat_history[-1].get("content"))
-    if not isinstance(message, str) or not message.strip():
-        yield chat_history, None
-        return
+    base = chat_history + [{"role": "user", "content": _with_ts(message)}]
+    # instant: echo + clear box + typing indicator, all in the first response
+    yield base + [{"role": "assistant", "content": _TYPING}], "", None
     if STATE["index"] is None:
-        yield chat_history + [{"role": "assistant",
-                               "content": "⚠️ La base n'est pas encore indexée. "
-                                          "Cliquez sur « Rafraîchir »."}], None
+        yield base + [{"role": "assistant",
+                       "content": "⚠️ La base n'est pas encore indexée. "
+                                  "Cliquez sur « Rafraîchir »."}], "", None
         return
-    yield chat_history + [{"role": "assistant", "content": _TYPING}], None   # typing…
-    prior = _history_to_messages(chat_history[:-1])     # everything before this question
-    result = bot.answer(message, STATE["index"], prior)
-    out = chat_history + [{"role": "assistant", "content": _with_ts(result["text"])}]
+    prior = _history_to_messages(chat_history)          # everything before this question
+    result = bot.answer(message.strip(), STATE["index"], prior)
+    out = base + [{"role": "assistant", "content": _with_ts(result["text"])}]
     wav = voice.synthesize(result["text"], result["lang"]) if speak else None
     if wav:
         out = out + [{"role": "assistant", "content": {"path": wav}}]
-    yield out, wav
+    yield out, "", wav
 
 
 def on_clear():
@@ -197,7 +184,12 @@ def on_voice(audio_path, chat_history):
     """
     chat_history = chat_history or []
     if audio_path is None:
-        yield chat_history, None
+        # explicit feedback instead of a silent no-op (the user pressed "Envoyer la voix"
+        # with nothing recorded — they reported clicks that "did nothing").
+        yield chat_history + [{"role": "assistant",
+                               "content": "🎙️ Aucun enregistrement détecté — cliquez sur le "
+                                          "micro, parlez, arrêtez l'enregistrement, puis "
+                                          "« Envoyer la voix »."}], None
         return
     rec = {"role": "user", "content": {"path": audio_path}}          # your recording (replayable)
     if STATE["index"] is None:
@@ -287,6 +279,8 @@ def build_ui():
         with gr.Row():
             mic = gr.Audio(sources=["microphone"], type="filepath",
                            label="🎙️ Parler à DjezzyBot", scale=2)
+            send_voice_btn = gr.Button("🎤 Envoyer la voix", variant="primary",
+                                       scale=1, min_width=130)
             voice_out = gr.Audio(label="🔊 Réponse vocale (dernière)",
                                  autoplay=True, scale=1)
 
@@ -297,23 +291,20 @@ def build_ui():
                                     value=False)
 
         # ---- wiring : text AND voice feed the SAME chatbot ----------------
-        # Text is TWO phases: add_user_text echoes the question instantly + clears the
-        # box, then reply_text generates. Voice always speaks back; typed answers speak
-        # only when the toggle is on. Every long-running event is captured so the Stop
-        # button can cancel it.
-        # show_progress="hidden" removes Gradio's ugly "processing | 55s/32s" queue-ETA
-        # boxes that used to clutter the output components; the chat echo + Stop button
-        # already make it obvious the bot is working.
-        send_evt = send_btn.click(add_user_text, [txt, chatbot], [chatbot, txt],
-                                  show_progress="hidden") \
-            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out],
-                  show_progress="hidden")
-        submit_evt = txt.submit(add_user_text, [txt, chatbot], [chatbot, txt],
-                                show_progress="hidden") \
-            .then(reply_text, [chatbot, speak_chk], [chatbot, voice_out],
-                  show_progress="hidden")
-        voice_evt = mic.stop_recording(on_voice, [mic, chatbot], [chatbot, voice_out],
-                                       show_progress="hidden")
+        # Text is ONE generator event (submit_text): its first yield echoes the question,
+        # clears the box, and shows the typing bubble in a single round-trip — the old
+        # two-event add→reply chain added a visible <1s gap before "rédige" appeared.
+        # Voice has its OWN explicit send button (users pressed Enter/Envoyer — wired to
+        # TEXT — expecting it to send a recording, and nothing happened). Typed answers
+        # speak only when the toggle is on; voice always speaks back. Each long event is
+        # captured so Stop can cancel it.
+        # show_progress="hidden" removes Gradio's ugly "processing | 55s/32s" queue-ETA box.
+        send_evt = send_btn.click(submit_text, [txt, chatbot, speak_chk],
+                                  [chatbot, txt, voice_out], show_progress="hidden")
+        submit_evt = txt.submit(submit_text, [txt, chatbot, speak_chk],
+                                [chatbot, txt, voice_out], show_progress="hidden")
+        voice_evt = send_voice_btn.click(on_voice, [mic, chatbot],
+                                         [chatbot, voice_out], show_progress="hidden")
 
         stop_btn.click(None, None, None, cancels=[send_evt, submit_evt, voice_evt])
         clear_btn.click(on_clear, None, [chatbot, txt, voice_out])

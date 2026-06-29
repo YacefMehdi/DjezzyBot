@@ -281,13 +281,17 @@ _STYLE_DIRECTIVE = {
     ),
     "budget": (
         "Le client indique un budget. Le contexte contient PLUSIEURS offres éligibles "
-        "(souvent 3 à 5) : tu DOIS les présenter TOUTES, jamais une seule. Pour CHAQUE "
-        "offre du contexte, donne son nom puis, parmi ses paliers au prix inférieur ou "
-        "égal au budget, mets en avant le palier le PLUS AVANTAGEUX (le plus cher que le "
-        "budget permet, donc le plus de Go) avec son prix et ses détails essentiels. "
-        "Classe les offres de la moins chère à la plus chère, UNE par ligne. NE DIS "
-        "JAMAIS qu'il n'existe qu'une seule option tant que le contexte en contient "
-        "plusieurs, et n'oublie aucune offre présente dans le contexte."
+        "(souvent 3 à 5) : tu DOIS les présenter TOUTES, jamais une seule. IGNORE l'offre "
+        "dont on a parlé juste avant dans la conversation : ne te limite PAS à elle, "
+        "réponds uniquement à partir des offres listées dans le CONTEXTE ci-dessus et "
+        "énumère-les chacune. Pour CHAQUE offre du contexte, donne son nom puis, parmi ses "
+        "paliers au prix inférieur ou égal au budget, mets en avant le palier le PLUS "
+        "AVANTAGEUX (le plus cher que le budget permet, donc le plus de Go) avec son prix "
+        "et ses détails essentiels. Classe les offres de la moins chère à la plus chère, "
+        "UNE par ligne. Commence ta réponse en annonçant le nombre d'offres disponibles "
+        "(ex. « Avec 1000 DA, 5 offres sont possibles : »). NE DIS JAMAIS qu'il n'existe "
+        "qu'une seule option tant que le contexte en contient plusieurs, et n'oublie "
+        "aucune offre présente dans le contexte."
     ),
     "roaming": (
         "Donne les tarifs/forfaits roaming (à l'étranger) demandés, avec leur prix ; ne les "
