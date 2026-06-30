@@ -22,6 +22,7 @@ Latency is wired in from the start (per spec): retrieval and generation are time
 SEPARATELY via the `timed()` context manager.
 """
 
+import os
 import re
 import time
 import json
@@ -338,9 +339,9 @@ def _format_context(docs: list) -> str:
     return "\n\n".join(parts)
 
 
-def build_prompt(question: str, context: str, lang: str, history: list,
-                 budget: int = None, route: str = "normal") -> str:
-    """Assemble the full Qwen chat-ML prompt string.
+def build_messages(question: str, context: str, lang: str, history: list,
+                   budget: int = None, route: str = "normal") -> list:
+    """Assemble the [system, user] messages for one answer (shared by local + API).
 
     Structure: system rules → (user turn) history + context + [budget note] +
     presentation directive (chosen from `route`) + language directive + question →
@@ -381,19 +382,27 @@ def build_prompt(question: str, context: str, lang: str, history: list,
         f"Question du client : {question}"
     )
 
-    messages = [
+    return [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_turn},
     ]
-    # Use the tokenizer's chat template when available (correct Qwen formatting),
-    # otherwise fall back to a manual ChatML string (keeps pure tests working).
+
+
+def build_prompt(question: str, context: str, lang: str, history: list,
+                 budget: int = None, route: str = "normal") -> str:
+    """Local path: the chat-templated Qwen prompt STRING for the tokenizer.
+
+    Uses the tokenizer's chat template when available (correct Qwen formatting),
+    otherwise a manual ChatML string so pure tests work without the model loaded.
+    """
+    messages = build_messages(question, context, lang, history, budget, route)
     if _tokenizer is not None:
         return _tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
     return (
-        f"<|im_start|>system\n{SYSTEM_PROMPT}<|im_end|>\n"
-        f"<|im_start|>user\n{user_turn}<|im_end|>\n"
+        f"<|im_start|>system\n{messages[0]['content']}<|im_end|>\n"
+        f"<|im_start|>user\n{messages[1]['content']}<|im_end|>\n"
         f"<|im_start|>assistant\n"
     )
 
@@ -474,11 +483,49 @@ def _generate(prompt: str) -> str:
     return _generate_n(prompt, config.MAX_NEW_TOKENS)
 
 
+def _use_api() -> bool:
+    """Generate with a hosted OpenAI-compatible model instead of the local 7B?
+
+    Off by default (the deployed system is local). Set LLM_BACKEND=api to run the SAME
+    bot pipeline on a bigger open model (e.g. Qwen-32B on Groq) for an accuracy/speed
+    comparison. Retrieval, routing, prompt and language handling are unchanged — only the
+    generator differs — so the comparison is apples-to-apples.
+    """
+    return os.environ.get("LLM_BACKEND", "local").lower() == "api"
+
+
+def _generate_api(messages: list, max_new_tokens: int) -> str:
+    """One greedy completion from the hosted model (env LLM_API_BASE / KEY / MODEL).
+
+    Sends the SAME messages the local path would template. The decode-time CJK/Cyrillic
+    ban is local-only, but _repair_brands still runs and a bigger model rarely code-switches,
+    so this is fine for the comparison test.
+    """
+    import urllib.request
+    base = os.environ.get("LLM_API_BASE", "https://api.groq.com/openai/v1").rstrip("/")
+    key = os.environ.get("LLM_API_KEY", "")
+    model = os.environ.get("LLM_MODEL", "qwen-2.5-32b")
+    if not key:
+        raise RuntimeError("LLM_BACKEND=api but LLM_API_KEY is not set.")
+    payload = json.dumps({"model": model, "temperature": 0,
+                          "max_tokens": max_new_tokens, "messages": messages}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{base}/chat/completions", data=payload,
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        body = json.loads(resp.read().decode("utf-8"))
+    return body["choices"][0]["message"]["content"].strip()
+
+
 def _generate_clean(question: str, context: str, lang: str, history: list,
                     budget: int, route: str) -> str:
     """Generate an answer (CJK/Cyrillic already forbidden at decode time), then run the
     microsecond _repair_brands net to canonicalise any brand token that slipped. No second
     pass, no sampling — latency is identical to a plain generation."""
+    if _use_api():
+        messages = build_messages(question, context, lang, history, budget, route)
+        return _repair_brands(_generate_api(messages, config.MAX_NEW_TOKENS), lang)
     prompt = build_prompt(question, context, lang, history, budget, route)
     return _repair_brands(_generate(prompt), lang)
 
@@ -528,13 +575,16 @@ def _in_domain(question: str, history: list = None) -> bool:
     )
     messages = [{"role": "system", "content": _GATE_SYSTEM},
                 {"role": "user", "content": user}]
-    if _tokenizer is not None:
-        prompt = _tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True)
+    if _use_api():
+        verdict = _generate_api(messages, 5).strip().lower()
     else:
-        prompt = (f"<|im_start|>system\n{_GATE_SYSTEM}<|im_end|>\n"
-                  f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n")
-    verdict = _generate_n(prompt, 5).strip().lower()
+        if _tokenizer is not None:
+            prompt = _tokenizer.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True)
+        else:
+            prompt = (f"<|im_start|>system\n{_GATE_SYSTEM}<|im_end|>\n"
+                      f"<|im_start|>user\n{user}<|im_end|>\n<|im_start|>assistant\n")
+        verdict = _generate_n(prompt, 5).strip().lower()
     return not (verdict.startswith("non") or verdict.startswith("no") or "لا" in verdict)
 
 
