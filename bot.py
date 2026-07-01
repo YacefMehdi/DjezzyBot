@@ -511,7 +511,10 @@ def _generate_api(messages: list, max_new_tokens: int) -> str:
                           "max_tokens": max_new_tokens, "messages": messages}).encode("utf-8")
     req = urllib.request.Request(
         f"{base}/chat/completions", data=payload,
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        # Browser User-Agent: Groq sits behind Cloudflare, which 403s the default
+        # "Python-urllib" client (Cloudflare error 1010).
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
+                 "User-Agent": config.USER_AGENT},
     )
     with urllib.request.urlopen(req, timeout=120) as resp:
         body = json.loads(resp.read().decode("utf-8"))

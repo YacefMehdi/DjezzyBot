@@ -126,8 +126,11 @@ def _llm_api(system: str, user: str, retries: int = 3) -> str:
     }).encode("utf-8")
     req = urllib.request.Request(
         f"{API_BASE}/chat/completions", data=payload,
+        # A browser User-Agent is REQUIRED: Groq is behind Cloudflare, which blocks the
+        # default "Python-urllib" client with HTTP 403 (Cloudflare error 1010).
         headers={"Authorization": f"Bearer {API_KEY}",
-                 "Content-Type": "application/json"},
+                 "Content-Type": "application/json",
+                 "User-Agent": config.USER_AGENT},
     )
     last = None
     for attempt in range(retries):
