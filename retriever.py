@@ -39,6 +39,18 @@ from data import catalog
 
 logger = logging.getLogger("djezzybot.retriever")
 
+try:
+    from langchain_core.documents import Document
+except ImportError:
+    try:
+        from langchain.schema import Document
+    except ImportError:
+        from dataclasses import dataclass, field
+        @dataclass
+        class Document:
+            page_content: str
+            metadata: dict = field(default_factory=dict)
+
 # Arabic-Indic digits -> ASCII, so "عندي ٥٠٠ دج" parses like "500 da".
 _ARAB_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 
@@ -204,7 +216,6 @@ def _copy_doc(doc, new_text: str = None):
     reused by every later query. Routes that trim or rewrite chunk text (the budget
     filter, catalogue snippets) work on copies returned by this helper.
     """
-    from langchain_core.documents import Document
     return Document(
         page_content=doc.page_content if new_text is None else new_text,
         metadata=dict(doc.metadata),
@@ -219,7 +230,6 @@ def _catalog_doc(text: str, url: str, route: str):
     clean by construction. metadata carries the source page URL (for citation) and a
     `catalog` flag so bot.py / logs can tell catalog-sourced context from FAISS chunks.
     """
-    from langchain_core.documents import Document
     return Document(
         page_content=text,
         metadata={"source_url": url or "", "catalog": True, "route": route},

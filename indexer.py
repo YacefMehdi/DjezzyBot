@@ -131,8 +131,12 @@ def build_index(pages: list):
     on normalized vectors is inner-product (IndexFlatIP). Persisted to FAISS_DIR.
     Returns the in-memory FAISS store.
     """
-    from langchain_community.vectorstores import FAISS
-    from langchain_community.vectorstores.utils import DistanceStrategy
+    try:
+        from langchain_community.vectorstores import FAISS
+        from langchain_community.vectorstores.utils import DistanceStrategy
+    except ImportError:
+        logger.warning("build_index: langchain_community not installed")
+        return None
 
     docs = chunk_documents(pages)
     if not docs:
@@ -152,7 +156,11 @@ def build_index(pages: list):
 
 def load_index():
     """Load the persisted FAISS store, or None if it hasn't been built yet."""
-    from langchain_community.vectorstores import FAISS
+    try:
+        from langchain_community.vectorstores import FAISS
+    except ImportError:
+        logger.warning("load_index: langchain_community not installed")
+        return None
 
     if not os.path.exists(os.path.join(config.FAISS_DIR, "index.faiss")):
         logger.warning("load_index: no index at %s", config.FAISS_DIR)
