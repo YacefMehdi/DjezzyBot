@@ -520,7 +520,11 @@ def _generate_api(messages: list, max_new_tokens: int) -> str:
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-        return body["choices"][0]["message"]["content"].strip()
+        msg = body["choices"][0]["message"]
+        text = msg.get("content") or msg.get("reasoning_content") or ""
+        if "</think>" in text:
+            text = text.split("</think>", 1)[1]
+        return text.strip()
     except urllib.error.HTTPError as err:
         err_body = ""
         try:
