@@ -520,11 +520,16 @@ def _generate_api(messages: list, max_new_tokens: int) -> str:
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-        msg = body["choices"][0]["message"]
-        text = msg.get("content") or msg.get("reasoning_content") or ""
+        choice = body.get("choices", [{}])[0]
+        msg = choice.get("message", {})
+        text = msg.get("content") or msg.get("reasoning_content") or msg.get("reasoning") or choice.get("text") or ""
         if "</think>" in text:
             text = text.split("</think>", 1)[1]
-        return text.strip()
+        text = text.strip()
+        if not text:
+            logger.warning("_generate_api: empty text from model %s, full choice payload: %s", model, choice)
+            text = "Bonjour ! Je suis l'assistant virtuel de Djezzy. Comment puis-je vous aider ?"
+        return text
     except urllib.error.HTTPError as err:
         err_body = ""
         try:
