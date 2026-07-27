@@ -151,7 +151,16 @@ def submit_text(message, chat_history, speak):
                                   "Cliquez sur « Rafraîchir »."}], "", None
         return
     prior = _history_to_messages(chat_history)          # everything before this question
-    result = bot.answer(message.strip(), STATE["index"], prior)
+    try:
+        result = bot.answer(message.strip(), STATE["index"], prior)
+    except Exception as e:
+        logger.exception("text answer failed")
+        tb = traceback.format_exc().strip().splitlines()
+        where = tb[-1] if tb else f"{type(e).__name__}: {e}"
+        yield base + [{"role": "assistant",
+                       "content": f"⚠️ Erreur de génération — {where}"}], "", None
+        return
+
     out = base + [{"role": "assistant", "content": _with_ts(result["text"])}]
     wav = voice.synthesize(result["text"], result["lang"]) if speak else None
     if wav:
