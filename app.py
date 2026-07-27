@@ -89,7 +89,7 @@ def _status_text() -> str:
 # as a small muted line and stripped back out before the text reaches the LLM, so it
 # never pollutes the prompt.
 _DZ_TZ = timezone(timedelta(hours=1))
-_TS_RE = re.compile(r"\n\n<sub>.*?</sub>\s*$", re.DOTALL)
+_TS_RE = re.compile(r"\n\n(?:\*\(|<sub>).*?(?:\)\*|</sub>)\s*$", re.DOTALL)
 # Transient "bot is typing" bubble, yielded while the (slow) answer is generated so the
 # screen isn't frozen after we removed Gradio's queue spinner. Never persisted/sent to LLM.
 _TYPING = "*✍️ DjezzyBot rédige…*"
@@ -101,7 +101,9 @@ def _stamp() -> str:
 
 def _with_ts(text: str) -> str:
     """Append a muted timestamp line to a displayed message."""
-    return f"{text}\n\n<sub>{_stamp()}</sub>"
+    if not text or not str(text).strip():
+        return ""
+    return f"{text}\n\n*({_stamp()})*"
 
 
 def _strip_ts(text):
@@ -242,21 +244,7 @@ _CSS = f"""
 .djezzy-status {{ background: {config.DJEZZY_RED}; color: {config.DJEZZY_WHITE};
                   padding: 8px 14px; border-radius: 8px; font-weight: 600; }}
 footer {{ visibility: hidden; }}
-
-/* Bidirectional text. Each message follows its OWN script's direction: an Arabic or
-   Darija reply renders right-to-left (so embedded Latin names like "Djezzy"/"iZZY" and
-   short codes like "#121*" keep the correct visual order), while French/English stay
-   left-to-right. `unicode-bidi: plaintext` applies the Unicode bidi algorithm per
-   paragraph using its first strong character, so no per-message language flag is needed. */
-.gradio-container .message,
-.gradio-container .message *,
-.gradio-container [class*="bubble"],
-.gradio-container [class*="message"] p,
-.gradio-container [class*="message"] li,
-.gradio-container [class*="message"] span {{
-  unicode-bidi: plaintext;
-  text-align: start;
-}}
+.gradio-container p, .gradio-container span {{ unicode-bidi: plaintext; }}
 """
 
 
