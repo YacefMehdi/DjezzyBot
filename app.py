@@ -267,7 +267,12 @@ def build_ui():
     theme = gr.themes.Soft(primary_hue=gr.themes.colors.red,
                           neutral_hue=gr.themes.colors.gray)
 
-    with gr.Blocks(theme=theme, css=_CSS, title="DjezzyBot") as demo:
+    try:
+        demo = gr.Blocks(theme=theme, css=_CSS, title="DjezzyBot")
+    except Exception:
+        demo = gr.Blocks(title="DjezzyBot")
+
+    with demo:
         gr.Markdown("# 📱 DjezzyBot", elem_id="title")
         gr.Markdown("Assistant virtuel multilingue de Djezzy — écrivez **ou** parlez, "
                     "dans une seule conversation (Arabe · Français · English · Darija).")
@@ -275,8 +280,15 @@ def build_ui():
 
         # One shared conversation for BOTH text and voice → a single history.
         # Tall so the conversation fills the screen instead of a cramped scroller.
-        chatbot = gr.Chatbot(type="messages", height=600, label="Conversation",
-                             show_copy_button=True)
+        try:
+            chatbot = gr.Chatbot(type="messages", height=600, label="Conversation",
+                                 show_copy_button=True)
+        except TypeError:
+            try:
+                chatbot = gr.Chatbot(height=600, label="Conversation",
+                                     show_copy_button=True)
+            except TypeError:
+                chatbot = gr.Chatbot(height=600, label="Conversation")
 
         with gr.Row():
             txt = gr.Textbox(

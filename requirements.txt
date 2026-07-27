@@ -40,4 +40,4 @@ langdetect>=1.0.9
 schedule>=1.2
 
 # --- UI ---
-gradio>=5.0          # upgraded from 4.x: newer audio recorder fixes the mic widget quirks
+gradio>=5.0,<6.0     # 5.x branch: supports type="messages" and show_copy_button cleanly
