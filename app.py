@@ -130,43 +130,37 @@ def _history_to_messages(chat_history):
 
 
 def submit_text(message, chat_history, speak):
-    """Handle a typed question end-to-end in ONE event (generator).
-
-    The first yield is INSTANT and does three things in a single round-trip: echo the
-    question, clear the textbox, and show the "✍️ rédige…" bubble. The old design split
-    this into two chained events (add_user_text → reply_text), so the typing indicator
-    only appeared after a SECOND queue hop — the visible <1s lag the user reported. One
-    generator removes that hop. Later yields replace the typing bubble with the real
-    answer (and, if `speak` is on, a playable spoken-reply bubble that stays in the chat).
-    Yields (chat, textbox, spoken-reply wav).
-    """
+    """Handle a typed question end-to-end (generator)."""
     chat_history = chat_history or []
     if not message or not message.strip():
         yield chat_history, "", None
         return
-    base = chat_history + [{"role": "user", "content": _with_ts(message)}]
-    # instant: echo + clear box + typing indicator, all in the first response
-    yield base + [{"role": "assistant", "content": _TYPING}], "", None
+
+    base = chat_history + [{"role": "user", "content": _with_ts(message.strip())}]
+    yield base, "", None
+
     if STATE["index"] is None:
         yield base + [{"role": "assistant",
                        "content": "⚠️ La base n'est pas encore indexée. "
                                   "Cliquez sur « Rafraîchir »."}], "", None
         return
-    prior = _history_to_messages(chat_history)          # everything before this question
+
+    prior = _history_to_messages(chat_history)
+    result = None
     try:
         result = bot.answer(message.strip(), STATE["index"], prior)
+        text = result.get("text", "") if result else ""
     except Exception as e:
         logger.exception("text answer failed")
         tb = traceback.format_exc().strip().splitlines()
         where = tb[-1] if tb else f"{type(e).__name__}: {e}"
-        yield base + [{"role": "assistant",
-                       "content": f"⚠️ Erreur de génération — {where}"}], "", None
-        return
+        text = f"⚠️ Erreur de génération — {where}"
 
-    out = base + [{"role": "assistant", "content": _with_ts(result["text"])}]
-    wav = voice.synthesize(result["text"], result["lang"]) if speak else None
-    if wav:
-        out = out + [{"role": "assistant", "content": {"path": wav}}]
+    if not text or not text.strip():
+        text = "Je n'ai pas trouvé d'information. Pouvez-vous reformuler votre question ?"
+
+    out = base + [{"role": "assistant", "content": _with_ts(text)}]
+    wav = voice.synthesize(text, result.get("lang", "fr")) if (speak and result) else None
     yield out, "", wav
 
 
