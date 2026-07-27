@@ -502,6 +502,7 @@ def _generate_api(messages: list, max_new_tokens: int) -> str:
     so this is fine for the comparison test.
     """
     import urllib.request
+    import urllib.error
     base = os.environ.get("LLM_API_BASE", "https://api.groq.com/openai/v1").rstrip("/")
     key = os.environ.get("LLM_API_KEY", "")
     model = os.environ.get("LLM_MODEL", "qwen-2.5-32b")
@@ -516,9 +517,22 @@ def _generate_api(messages: list, max_new_tokens: int) -> str:
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json",
                  "User-Agent": config.USER_AGENT},
     )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        body = json.loads(resp.read().decode("utf-8"))
-    return body["choices"][0]["message"]["content"].strip()
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        return body["choices"][0]["message"]["content"].strip()
+    except urllib.error.HTTPError as err:
+        err_body = ""
+        try:
+            err_body = err.read().decode("utf-8", errors="ignore")
+        except Exception:
+            pass
+        if err.code == 404:
+            raise RuntimeError(
+                f"Model '{model}' not found on Groq API (404). "
+                f"Please run Step 2b in the notebook to list available Groq models (e.g. qwen-2.5-32b or qwen-32b-preview) and set LLM_MODEL."
+            ) from err
+        raise RuntimeError(f"Groq API call failed (HTTP {err.code}): {err_body or err}") from err
 
 
 def _generate_clean(question: str, context: str, lang: str, history: list,
